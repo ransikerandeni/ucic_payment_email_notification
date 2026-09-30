@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "creation": "2026-09-28 00:00:00.000000",
+ "description": "The wording and branding of the payment receipt emailed to participants.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "content_section",
+  "email_subject",
+  "email_body",
+  "email_footer",
+  "branding_section",
+  "header_title",
+  "logo",
+  "column_break_branding",
+  "brand_color",
+  "placeholders_section",
+  "placeholders_help"
+ ],
+ "fields": [
+  {
+   "fieldname": "content_section",
+   "fieldtype": "Section Break",
+   "label": "Email Content"
+  },
+  {
+   "description": "Placeholders allowed, e.g. Payment receipt - {{ session_title }}. Left blank, the default subject is used.",
+   "fieldname": "email_subject",
+   "fieldtype": "Data",
+   "label": "Subject"
+  },
+  {
+   "description": "The message above the receipt details. Placeholders allowed - see the list at the bottom. Left blank, the default message is used.",
+   "fieldname": "email_body",
+   "fieldtype": "Text Editor",
+   "label": "Body"
+  },
+  {
+   "description": "Small print at the bottom of the email - contact details, terms, a sign-off. Clear it to send the receipt with no footer.",
+   "fieldname": "email_footer",
+   "fieldtype": "Text Editor",
+   "label": "Footer"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "branding_section",
+   "fieldtype": "Section Break",
+   "label": "Look"
+  },
+  {
+   "description": "Large text in the coloured header, e.g. UCIC 2026. Left blank, the conference name is used.",
+   "fieldname": "header_title",
+   "fieldtype": "Data",
+   "label": "Header Title"
+  },
+  {
+   "description": "Shown in the header. Must be a PUBLIC file (untick Is Private when uploading) - mail clients cannot log in to fetch a private one. A white or transparent PNG looks best on a dark brand colour.",
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
+  },
+  {
+   "fieldname": "column_break_branding",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "#1f3a68",
+   "description": "Header band, dividers and links. Header text turns dark automatically on a light colour.",
+   "fieldname": "brand_color",
+   "fieldtype": "Color",
+   "label": "Brand Colour"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "placeholders_section",
+   "fieldtype": "Section Break",
+   "label": "Placeholders"
+  },
+  {
+   "fieldname": "placeholders_help",
+   "fieldtype": "HTML",
+   "options": "<div style=\"font-size:13px;line-height:1.6\"><p>Write these into the Subject, Body or Footer and they are replaced with the receipt's own values. Wrap optional ones in <code>{% if ... %}...{% endif %}</code> so nothing odd shows when a value is missing.</p><table class=\"table table-bordered\" style=\"max-width:720px\"><tr><td><code>{{ participant }}</code></td><td>Participant's full name</td></tr><tr><td><code>{{ session_title }}</code></td><td>Session bought, or e.g. <em>Conference Pass - Both Days</em></td></tr><tr><td><code>{{ conference }}</code></td><td>Conference name</td></tr><tr><td><code>{{ session_date_display }}</code></td><td>Session date, e.g. 24 August 2026</td></tr><tr><td><code>{{ venue }}</code></td><td>Hall</td></tr><tr><td><code>{{ pass_package }}</code></td><td>Conference pass package (passes only)</td></tr><tr><td><code>{{ pass_days_display }}</code></td><td>Dates the pass is valid on (passes only)</td></tr><tr><td><code>{{ amount_display }}</code></td><td>Amount paid, with currency</td></tr><tr><td><code>{{ paid_on_display }}</code></td><td>When it was paid</td></tr><tr><td><code>{{ receipt_no }}</code></td><td>Receipt number (the Payment Request)</td></tr><tr><td><code>{{ gateway }}</code>, <code>{{ gateway_reference }}</code></td><td>Payment gateway and its transaction reference</td></tr></table><p>Example: <code>{% if participant %}Dear {{ participant }},{% else %}Hello,{% endif %}</code></p><p>Use <b>Preview</b> to check the email before saving, and <b>Send Test Email</b> to see it in your own inbox.</p></div>"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "UCIC Notifications",
+ "name": "Receipt Email Template",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Accounts Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

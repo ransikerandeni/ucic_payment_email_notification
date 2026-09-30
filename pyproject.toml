@@ -1,0 +1,49 @@
+[project]
+name = "ucic_notifications"
+authors = [
+    { name = "Ransike Randeni", email = "ransikerandeni@gmail.com" }
+]
+description = "Participant-facing email for the UCIC conference system - payment receipts, and whatever else needs saying"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = []
+
+[project.optional-dependencies]
+# Everything needed to run `pytest` against this app without a bench.
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.5",
+    "jinja2>=3.0",   # the stub renders the real email template
+]
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "ucic_notifications"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The suite stubs frappe (see tests/frappe_stub.py) so it runs standalone.
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "S", "C4", "UP"]
+ignore = [
+    "E501",   # line length is handled by the formatter
+    "W191",   # this codebase indents with tabs, like Frappe itself
+    "E101",
+    "UP031",  # %-formatting throughout, matching Frappe's own style
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.bench.frappe-dependencies]
+frappe = ">=14.0.0"

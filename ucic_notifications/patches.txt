@@ -1,0 +1,5 @@
+[pre_model_sync]
+
+[post_model_sync]
+# After the sync, so the Receipt Email Template DocType exists to be filled in.
+ucic_notifications.patches.seed_receipt_email_template
