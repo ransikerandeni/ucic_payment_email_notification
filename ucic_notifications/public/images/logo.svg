@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="UCIC Notifications">
+  <rect width="128" height="128" rx="28" fill="#1F4E8C"/>
+  <!-- receipt with zigzag bottom, peeking out of the envelope -->
+  <path d="M40 18h48a4 4 0 0 1 4 4v52H36V22a4 4 0 0 1 4-4z" fill="#FFFFFF"/>
+  <rect x="46" y="28" width="36" height="5" rx="2.5" fill="#BFD3EC"/>
+  <rect x="46" y="39" width="26" height="5" rx="2.5" fill="#BFD3EC"/>
+  <!-- envelope body -->
+  <path d="M20 54a6 6 0 0 1 6-6h76a6 6 0 0 1 6 6v46a6 6 0 0 1-6 6H26a6 6 0 0 1-6-6z" fill="#F4F8FD"/>
+  <path d="M22 52l42 32 42-32" fill="none" stroke="#1F4E8C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- paid check badge -->
+  <circle cx="98" cy="98" r="20" fill="#2E9E5B" stroke="#1F4E8C" stroke-width="5"/>
+  <path d="M88 98l7 7 13-14" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -8,6 +8,7 @@ app_publisher = "Ransike Randeni"
 app_description = "Participant-facing email for the UCIC conference system - payment receipts, and whatever else needs saying"
 app_email = "ransikerandeni@gmail.com"
 app_license = "MIT"
+app_logo_url = "/assets/ucic_notifications/images/logo.svg"
 
 # ---------------------------------------------------------------------------
 # NO doc_events, ON PURPOSE.
