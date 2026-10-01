@@ -356,6 +356,38 @@ def send_receipt_now(payment_request):
 		return False
 
 
+def notify_outcome_for_user(payment_request, user):
+	"""Email the outcome of a payment because ITS OWNER'S APP asked for it.
+
+	The app calls this the moment it sees the payment settle, which is what makes
+	the email instant. It is a request, not an instruction: this only mails what
+	the Payment Request's own status says (Paid -> receipt, Failed -> failure
+	notice), only to the address on record, and only once - so a caller can
+	neither choose the recipient nor trigger a mail that was not already due.
+
+	The caller must own the payment: it names them (`email_to`) or their
+	Participant record carries their login email. Anyone else is refused, so one
+	logged-in participant cannot make the server mail another's payment.
+	"""
+	pr = frappe.db.get_value(
+		"Payment Request", payment_request, ["party", "email_to", "status"], as_dict=True
+	)
+
+	if not pr:
+		raise frappe.PermissionError("Payment Request %s was not found." % (payment_request,))
+
+	user_email = frappe.db.get_value("User", user, "email") or user
+	participant_email = (
+		frappe.db.get_value("Participant", pr.party, "email") if pr.party else None
+	)
+	owners = {(v or "").strip().lower() for v in (pr.email_to, participant_email)}
+
+	if (user or "").lower() not in owners and (user_email or "").lower() not in owners:
+		raise frappe.PermissionError("Payment Request %s is not yours." % (payment_request,))
+
+	return send_receipt_now(payment_request)
+
+
 def unreceipted(max_age_days=DEFAULT_MAX_AGE_DAYS, limit=DEFAULT_LIMIT):
 	"""Paid Payment Requests that have not been receipted yet."""
 	return _unnotified("Paid", receipt_field(), max_age_days, limit)

@@ -39,6 +39,22 @@ def resend_receipt(payment_request):
 
 
 @frappe.whitelist()
+def notify_payment_outcome(payment_request):
+	"""Called by the UCIC app the moment a payment settles, so the participant is
+	emailed straight away instead of waiting for the sweep.
+
+	Logged-in participants only, and only for their own payment - see
+	receipts.notify_outcome_for_user. Safe to call twice: each outcome is mailed
+	once. The sweep remains the backstop for a participant who closed the app
+	before it could ask.
+	"""
+	if frappe.session.user == "Guest":
+		raise frappe.PermissionError("Log in to continue.")
+
+	return {"sent": bool(receipts.notify_outcome_for_user(payment_request, frappe.session.user))}
+
+
+@frappe.whitelist()
 def preview_receipt(values=None):
 	"""A sample receipt rendered with the template as it stands in the form.
 
