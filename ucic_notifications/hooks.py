@@ -24,11 +24,12 @@ after_migrate = "ucic_notifications.install.after_migrate"
 
 scheduler_events = {
 	"cron": {
-		# Every 15 minutes. A receipt records something that already happened
-		# and the participant has already seen the success screen, so minutes
-		# of latency cost nothing - and a sweep that failed on a mail server
-		# blip simply tries again on the next pass.
-		"*/15 * * * *": [
+		# Every minute. A receipt should reach the participant while they are
+		# still looking at the success screen. The sweep only touches Paid
+		# requests with no `receipt_sent_on`, so a pass with nothing to do is one
+		# cheap indexed query - and one that failed on a mail server blip simply
+		# tries again on the next pass.
+		"* * * * *": [
 			"ucic_notifications.receipts.sweep",
 		]
 	}

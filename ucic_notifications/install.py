@@ -4,7 +4,7 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from ucic_notifications import receipt_email
-from ucic_notifications.receipts import RECEIPTABLE_REFERENCE_DOCTYPES, receipt_field
+from ucic_notifications.receipts import RECEIPTABLE_REFERENCE_DOCTYPES, failure_field, receipt_field
 
 CUSTOM_FIELDS = {
 	"Payment Request": [
@@ -19,7 +19,16 @@ CUSTOM_FIELDS = {
 			# refused on a submitted document.
 			"allow_on_submit": 1,
 			"description": "When the participant was emailed their receipt. Clear it to re-send.",
-		}
+		},
+		{
+			"fieldname": "failure_notified_on",
+			"label": "Failure Notified On",
+			"fieldtype": "Datetime",
+			"insert_after": "receipt_sent_on",
+			"read_only": 1,
+			"allow_on_submit": 1,
+			"description": "When the participant was emailed that this payment failed. Clear it to re-send.",
+		},
 	]
 }
 
@@ -28,6 +37,7 @@ def after_install():
 	ensure_custom_fields()
 	seed_receipt_email_template()
 	backfill_existing()
+	backfill_existing_failures()
 
 
 def after_migrate():
@@ -85,6 +95,33 @@ def backfill_existing():
 		UPDATE `tabPayment Request`
 		SET `%s` = %%s
 		WHERE status = 'Paid'
+		  AND docstatus = 1
+		  AND (`%s` IS NULL OR `%s` = '')
+		  AND reference_doctype IN %%s
+		"""
+		% (field, field, field),
+		(frappe.utils.now(), RECEIPTABLE_REFERENCE_DOCTYPES),
+	)
+
+	frappe.db.commit()
+
+	return stamped
+
+
+def backfill_existing_failures():
+	"""Same line-drawing as backfill_existing, for Failed payments: everything
+	that failed before now counts as handled, so installing or updating never
+	emails anyone about a failure from weeks ago."""
+	field = failure_field()
+
+	if not field:
+		return 0
+
+	stamped = frappe.db.sql(
+		"""
+		UPDATE `tabPayment Request`
+		SET `%s` = %%s
+		WHERE status = 'Failed'
 		  AND docstatus = 1
 		  AND (`%s` IS NULL OR `%s` = '')
 		  AND reference_doctype IN %%s

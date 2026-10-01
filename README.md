@@ -32,7 +32,7 @@ Requests that are Paid but not yet receipted and emails them. **Nothing in
 ERPNext has to be edited.** A send that fails is simply retried on the next
 pass, instead of being lost inside a gateway callback.
 
-The cost is latency — a receipt arrives within one sweep interval (15 minutes by
+The cost is latency — a receipt arrives within one sweep interval (1 minute by
 default) rather than instantly. For a receipt that is the right trade: it
 records something that already happened, and the participant has already seen
 the success screen.
@@ -198,7 +198,7 @@ settled before that moment as already receipted.
 | To whom? | `Participant.email`, falling back to the Payment Request's `email_to` — the logged-in payer — so a payment is never left unreceipted |
 | Slot or whole session? | A Payment Request naming a `slot_allocation_row` bought a slot, and the receipt shows that participant's own window. One naming none bought the whole session, and it shows the session's |
 | Conference pass? | A Payment Request against a **Conference** is a conference pass (0.2.0+). The receipt names the package from `conference_package` (Day 1 / Both Days / Day 2) and, when the Conference has a Start Date, the dates it is valid on |
-| How often? | Every 15 minutes (`hooks.scheduler_events`) |
+| How often? | Every minute (`hooks.scheduler_events`) |
 
 ### Two independent guards against mass mail
 
@@ -208,6 +208,18 @@ settled before that moment as already receipted.
 
 Both are covered by tests, including a mutation check that each one actually
 fails the suite when removed.
+
+---
+
+## Failed payments
+
+A Payment Request that reaches **Failed** gets a "payment unsuccessful" email
+(`receipts.send_failure_notice`), sent once, guarded by `failure_notified_on`
+(clear it to re-send). Same recipient rules, same minute sweep, and the same
+header, logo and colour as the receipt. Its wording is fixed in
+`receipt_email.FAILURE_BODY`. Updating to 0.4.0 stamps every payment that
+failed before the update as already handled, so nobody is emailed about an old
+failure.
 
 ---
 

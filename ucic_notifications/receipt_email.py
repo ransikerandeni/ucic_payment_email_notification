@@ -23,6 +23,7 @@ import frappe
 
 TEMPLATE_DOCTYPE = "Receipt Email Template"
 LAYOUT = "ucic_notifications/templates/emails/payment_receipt.html"
+FAILURE_LAYOUT = "ucic_notifications/templates/emails/payment_failed.html"
 
 # Plain Jinja with no quoted strings: the Text Editor may store quotes as
 # entities, which would break a `{{ x or "y" }}` an organiser copied from here.
@@ -116,6 +117,58 @@ def render(context, overrides=None):
 	return subject, frappe.render_template(LAYOUT, layout)
 
 
+FAILURE_SUBJECT = "Payment unsuccessful{session}"
+
+FAILURE_BODY = (
+	"<p>{greeting}</p>"
+	"<p>Unfortunately your payment{for_what} <strong>did not go through</strong>, "
+	"so your booking has not been completed.</p>"
+	"<p>You can go back to the UCIC app and try the payment again. If the amount "
+	"has been deducted from your account, or you need any help, simply reply to "
+	"this email with the reference below and the organising team will sort it out.</p>"
+)
+
+
+def render_failure(context):
+	"""(subject, html message) telling a participant their payment failed.
+
+	Wording is fixed here rather than in the Receipt Email Template, so this
+	needs no DocType change; the header, logo and brand colour still come from
+	that template so both emails look like they are from the same place.
+	"""
+	tpl = get_template()
+	brand = tpl.brand_color
+	on_brand = _text_on(brand)
+
+	title = context.get("session_title")
+	name = context.get("participant")
+
+	subject = FAILURE_SUBJECT.format(session=(" - %s" % title) if title else " - %s" % context.get("receipt_no"))
+	body = FAILURE_BODY.format(
+		greeting=("Dear %s," % html.escape(name)) if name else "Hello,",
+		for_what=(" for <strong>%s</strong>" % html.escape(title)) if title else "",
+	)
+
+	layout = dict(
+		context,
+		body_html=body,
+		header_title=tpl.header_title or context.get("conference") or "Payment unsuccessful",
+		logo_url=_absolute_url(tpl.logo),
+		details=[
+			("Reference" if label == "Receipt no." else label, value)
+			for label, value in details_rows(context, when_label="Attempted on")
+		],
+		preheader="Your payment of %s was not successful" % (context.get("amount_display"),),
+		brand_color=brand,
+		brand_text=on_brand,
+		brand_muted=_mix(on_brand, brand, 0.72),
+		brand_tint=_mix(brand, "#ffffff", 0.06),
+		brand_line=_mix(brand, "#ffffff", 0.14),
+	)
+
+	return subject, frappe.render_template(FAILURE_LAYOUT, layout)
+
+
 def _render_part(field, source, context):
 	try:
 		return frappe.render_template(source, context, is_path=False)
@@ -128,8 +181,8 @@ def _render_part(field, source, context):
 		return frappe.render_template(DEFAULTS[field], context, is_path=False)
 
 
-def details_rows(context):
-	"""The label/value rows of the details table, only for what this receipt has."""
+def details_rows(context, when_label="Paid on"):
+	"""The label/value rows of the details table, only for what this email has."""
 	c = context
 	rows = [("Receipt no.", c.get("receipt_no"))]
 
@@ -157,7 +210,7 @@ def details_rows(context):
 	if c.get("gateway_reference"):
 		rows.append(("Transaction ref.", c["gateway_reference"]))
 
-	rows.append(("Paid on", c.get("paid_on_display")))
+	rows.append((when_label, c.get("paid_on_display")))
 
 	return [(label, str(value)) for label, value in rows if value]
 

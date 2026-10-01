@@ -46,6 +46,7 @@ SLOT_ROW_DOCTYPE = "Slot Allocations"
 # Both spellings are accepted so it does not matter which way a site was set up.
 RECEIPT_FIELD_CANDIDATES = ("receipt_sent_on", "custom_receipt_sent_on")
 SLOT_ROW_FIELD_CANDIDATES = ("slot_allocation_row", "custom_slot_allocation_row")
+FAILURE_FIELD_CANDIDATES = ("failure_notified_on", "custom_failure_notified_on")
 PACKAGE_FIELD_CANDIDATES = ("conference_package", "custom_conference_package")
 
 # Which conference days each pass package covers: Day 1 is the conference's
@@ -83,6 +84,10 @@ def _resolve_field(doctype, candidates):
 
 def receipt_field():
 	return _resolve_field("Payment Request", RECEIPT_FIELD_CANDIDATES)
+
+
+def failure_field():
+	return _resolve_field("Payment Request", FAILURE_FIELD_CANDIDATES)
 
 
 def slot_row_field():
@@ -259,9 +264,10 @@ def send_receipt(payment_request, force=False):
 	# Wording from the Receipt Email Template DocType, layout from this app.
 	subject, message = receipt_email.render(context)
 
-	# Queued rather than sent inline: a sweep should not stall on a slow SMTP
-	# server, and an unreachable one should leave the mail in the queue to go
-	# out later rather than failing the whole pass.
+	# `now=True` hands the mail to SMTP immediately instead of waiting for the
+	# queue flush, which runs on its own schedule and can lag by minutes. If
+	# SMTP is unreachable Frappe leaves the mail in the Email Queue and it goes
+	# out on a later flush, so a blip does not lose the receipt.
 	# reference_doctype/reference_name put the email on the Payment Request's
 	# own timeline, so "was this participant ever told?" is answerable in Desk.
 	frappe.sendmail(
@@ -270,6 +276,7 @@ def send_receipt(payment_request, force=False):
 		message=message,
 		reference_doctype="Payment Request",
 		reference_name=context["receipt_no"],
+		now=True,
 	)
 
 	frappe.db.set_value("Payment Request", payment_request, field, frappe.utils.now(), update_modified=False)
@@ -277,15 +284,95 @@ def send_receipt(payment_request, force=False):
 	return True
 
 
+def send_failure_notice(payment_request, force=False):
+	"""Email one participant that their payment failed. True when a mail was sent.
+
+	Only ever for a request that really is Failed, and once per request: a
+	gateway that reports the same failure twice must not mail twice.
+	"""
+	field = failure_field()
+
+	if not field:
+		frappe.throw(
+			"Payment Request has no `failure_notified_on` field, so there is no way to record "
+			"that the participant was told - and therefore no way to avoid telling them twice. "
+			"Run `bench --site <site> migrate` to have this app create it."
+		)
+
+	row = frappe.db.get_value("Payment Request", payment_request, ["status", field], as_dict=True)
+
+	if not row or row.status != "Failed":
+		return False
+
+	if not force and row.get(field):
+		return False
+
+	context = build_context(payment_request)
+
+	if not context:
+		frappe.log_error(
+			title="Payment failure notice has no recipient",
+			message="Payment Request %s failed, but no email address could be found for it." % (payment_request,),
+		)
+		return False
+
+	subject, message = receipt_email.render_failure(context)
+
+	frappe.sendmail(
+		recipients=[context["recipient"]],
+		subject=subject,
+		message=message,
+		reference_doctype="Payment Request",
+		reference_name=context["receipt_no"],
+		now=True,
+	)
+
+	frappe.db.set_value("Payment Request", payment_request, field, frappe.utils.now(), update_modified=False)
+
+	return True
+
+
+def send_receipt_now(payment_request):
+	"""Entry point for the settlement scripts: tell the participant the outcome right away
+	- a receipt if the payment is Paid, a failure notice if it is Failed.
+
+	Enqueue it AFTER the Paid write has committed, e.g. from a Server Script:
+
+		frappe.enqueue("ucic_notifications.receipts.send_receipt_now",
+			queue="short", enqueue_after_commit=True, payment_request=name)
+
+	Never raises into the caller - the minute sweep is the backstop.
+	"""
+	try:
+		status = frappe.db.get_value("Payment Request", payment_request, "status")
+		if status == "Failed":
+			return send_failure_notice(payment_request)
+		return send_receipt(payment_request)
+	except Exception:
+		frappe.log_error(
+			title="Payment receipt failed",
+			message="Payment Request %s\n\n%s" % (payment_request, frappe.get_traceback()),
+		)
+		return False
+
+
 def unreceipted(max_age_days=DEFAULT_MAX_AGE_DAYS, limit=DEFAULT_LIMIT):
 	"""Paid Payment Requests that have not been receipted yet."""
-	field = receipt_field()
+	return _unnotified("Paid", receipt_field(), max_age_days, limit)
+
+
+def unnotified_failures(max_age_days=DEFAULT_MAX_AGE_DAYS, limit=DEFAULT_LIMIT):
+	"""Failed Payment Requests whose participant has not been told yet."""
+	return _unnotified("Failed", failure_field(), max_age_days, limit)
+
+
+def _unnotified(status, field, max_age_days, limit):
 
 	if not field:
 		return []
 
 	filters = {
-		"status": "Paid",
+		"status": status,
 		"docstatus": 1,
 		"party_type": "Participant",
 		"reference_doctype": ["in", list(RECEIPTABLE_REFERENCE_DOCTYPES)],
@@ -320,6 +407,17 @@ def sweep(max_age_days=DEFAULT_MAX_AGE_DAYS, limit=DEFAULT_LIMIT):
 			# where a failure was simply lost.
 			frappe.log_error(
 				title="Payment receipt failed",
+				message="Payment Request %s\n\n%s" % (row.name, frappe.get_traceback()),
+			)
+
+	for row in unnotified_failures(max_age_days=max_age_days, limit=limit):
+		try:
+			if send_failure_notice(row.name):
+				sent = sent + 1
+		except Exception:
+			failed = failed + 1
+			frappe.log_error(
+				title="Payment failure notice failed",
 				message="Payment Request %s\n\n%s" % (row.name, frappe.get_traceback()),
 			)
 
