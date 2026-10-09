@@ -1,8 +1,12 @@
 # UCIC Notifications
 
-Participant-facing email for the UCIC conference system. Today that means one
-thing: **a payment receipt**, emailed to the participant after their payment
-settles.
+Email for the UCIC conference system:
+
+- **to participants** - a payment receipt after their payment settles, or a
+  "payment unsuccessful" notice when it fails;
+- **to the organising team** (0.5.0+) - every Help & Support request, and an
+  alert for every failed payment, sent to addresses set in **UCIC Notification
+  Settings**.
 
 It is a *receipt*, not a tax invoice — no Sales Invoice, no Customer, no Item,
 no GL entries. The Payment Request already is the order, so the receipt is built
@@ -106,43 +110,172 @@ waiting to go out.
 
 ## Update
 
-Updating never re-runs the backfill, so receipts that are still waiting are not
-lost or marked as sent.
+Updating never re-runs the install backfills, so receipts that are still
+waiting are not lost or marked as sent. Patches for the new version (listed in
+`ucic_notifications/patches.txt`) run once each, during `migrate`.
 
-1. **Back up first**
+Run everything below from the **bench directory** (the folder containing
+`apps/` and `sites/`), as the user that owns the bench (usually `frappe`), not
+as root.
+
+### 1. Back up first
+
+```bash
+bench --site <site> backup
+```
+
+The backup lands in `sites/<site>/private/backups/`.
+
+### 2a. Update with `bench update` (simplest)
+
+```bash
+bench update --apps ucic_notifications
+```
+
+This pulls the app, runs `bench migrate` and rebuilds assets in one go. Add
+`--reset` only if you have local edits in `apps/ucic_notifications` that you are
+happy to throw away. Then go to step 3.
+
+### 2b. Update by hand with `git pull`
+
+Use this when you want to see each step, pull a specific branch, or when
+`bench update` would also touch other apps you do not want to update now.
+
+1. **Go into the app and check its state**
 
    ```bash
-   bench --site <site> backup
+   cd apps/ucic_notifications
+   git status
+   git branch --show-current
    ```
+
+   `git status` should say *nothing to commit, working tree clean*. If it lists
+   changed files, someone edited the code on the server: keep them with
+   `git stash`, or throw them away with `git checkout -- .` before pulling.
 
 2. **Pull the latest code**
 
    ```bash
-   bench update --apps ucic_notifications
+   git pull origin <branch>
    ```
 
-   This pulls the app, runs `bench migrate` (which syncs the DocType, re-ensures
-   the `receipt_sent_on` field and runs any new patches) and rebuilds. Add
-   `--reset` only if you have local edits you are happy to throw away.
-
-   To do it by hand instead:
+   `<branch>` is the one shown by `git branch --show-current` (usually `main`).
+   To switch to another branch or a tag instead:
 
    ```bash
-   cd apps/ucic_notifications && git pull && cd ../..
-   bench --site <site> migrate
-   sudo supervisorctl restart all
+   git fetch origin
+   git checkout <branch-or-tag>
+   git pull origin <branch-or-tag>
    ```
 
-3. **Verify.** Check the version in `ucic_notifications/__init__.py` (or
-   `bench version`), and confirm the next sweep runs without errors in
-   **Error Log** / `logs/worker.error.log`.
+   Check you have the version you expected:
 
-Your edits in **Receipt Email Template** are kept: the seed only fills fields
-that are blank.
+   ```bash
+   cat ucic_notifications/__init__.py
+   git log --oneline -3
+   ```
 
-To roll back, check out the previous tag or commit in `apps/ucic_notifications`,
-run `bench --site <site> migrate`, and restart. Restore the backup only if the
-data itself needs undoing.
+3. **Back to the bench directory**
+
+   ```bash
+   cd ../..
+   ```
+
+4. **Install Python requirements** (only needed if `pyproject.toml`'s
+   `dependencies` changed - this app has none today, so it is safe to skip,
+   and harmless to run)
+
+   ```bash
+   bench setup requirements --python
+   ```
+
+5. **Migrate the site** - creates and updates DocTypes (e.g. **UCIC
+   Notification Settings**), the custom fields on Payment Request, and runs any
+   new patches
+
+   ```bash
+   bench --site <site> migrate
+   ```
+
+   Repeat for each site the app is installed on.
+
+6. **Build the app's assets** - copies `public/` (the app logo) into
+   `sites/assets` so Desk can serve it
+
+   ```bash
+   bench build --app ucic_notifications
+   ```
+
+   A DocType's own form script (`*.js` next to its JSON, such as the **Send
+   Test Emails** button) is served from the DocType, not the build - it is the
+   cache clear below that makes Desk pick up a new version.
+
+7. **Clear the cache**
+
+   ```bash
+   bench --site <site> clear-cache
+   bench --site <site> clear-website-cache
+   ```
+
+8. **Restart**, so the web server, background workers and scheduler load the
+   new Python code
+
+   - Production (supervisor):
+
+     ```bash
+     sudo supervisorctl restart all
+     ```
+
+     or, equivalently, `bench restart`.
+
+   - Development: stop `bench start` (Ctrl+C) and run it again.
+
+   Skipping this is the most common reason an update "did nothing": workers keep
+   running the old code until they restart.
+
+### 3. Verify
+
+- `bench version` (or `bench --site <site> list-apps`) shows the new version
+  of `ucic_notifications`.
+- Desk has the forms you expect: **Receipt Email Template**, and from 0.5.0
+  **UCIC Notification Settings**. Hard-refresh the browser (Ctrl/Cmd+Shift+R)
+  if a form or button is missing.
+- The scheduler is on: `bench --site <site> scheduler status` (if it is off,
+  `bench --site <site> enable-scheduler`).
+- No new errors in Desk → **Error Log**, or in `logs/worker.error.log` and
+  `logs/scheduler.log`, after a minute or two.
+
+Your edits in **Receipt Email Template** and the addresses in **UCIC
+Notification Settings** are kept: updates only fill fields that are blank.
+
+### Updating to 0.5.0 specifically
+
+- `migrate` creates **UCIC Notification Settings** and the
+  `staff_failure_alert_on` field on Payment Request, and the
+  `stamp_existing_failures_for_staff_alerts` patch marks every payment that had
+  already failed as handled - so the team is not alerted about old failures.
+- No Server Script or Client Script needs pasting or changing.
+- After restarting, fill in the form (see *Emails to the organising team*) and
+  press **Send Test Emails**.
+
+### Rolling back
+
+```bash
+cd apps/ucic_notifications
+git log --oneline            # find the commit or tag you were on before
+git checkout <previous-commit-or-tag>
+cd ../..
+bench --site <site> migrate
+bench build --app ucic_notifications
+bench --site <site> clear-cache
+sudo supervisorctl restart all
+```
+
+Restore the backup only if the data itself needs undoing:
+
+```bash
+bench --site <site> restore sites/<site>/private/backups/<file>.sql.gz
+```
 
 ---
 
@@ -175,13 +308,15 @@ bench --site <site> backup
 ### What stays behind
 
 This app has no uninstall hook, so uninstalling removes its DocTypes and
-Receipt Email Template settings but **does not remove the `receipt_sent_on`
-custom field** on Payment Request. It is harmless: the field is read only and
-nothing else uses it. To remove it, delete it in Desk under **Customize Form →
-Payment Request**, or from the console:
+its settings (Receipt Email Template, UCIC Notification Settings) but **does
+not remove its custom fields** on Payment Request - `receipt_sent_on`,
+`failure_notified_on` and `staff_failure_alert_on`. They are harmless: read
+only, and nothing else uses them. To remove them, delete them in Desk under
+**Customize Form → Payment Request**, or from the console:
 
 ```python
-frappe.delete_doc("Custom Field", "Payment Request-receipt_sent_on")
+for field in ("receipt_sent_on", "failure_notified_on", "staff_failure_alert_on"):
+	frappe.delete_doc("Custom Field", "Payment Request-" + field, ignore_missing=True)
 frappe.db.commit()
 ```
 
