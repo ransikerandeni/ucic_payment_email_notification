@@ -49,17 +49,41 @@ SLOT_ROW_FIELD_CANDIDATES = ("slot_allocation_row", "custom_slot_allocation_row"
 FAILURE_FIELD_CANDIDATES = ("failure_notified_on", "custom_failure_notified_on")
 PACKAGE_FIELD_CANDIDATES = ("conference_package", "custom_conference_package")
 TRANSACTION_ID_FIELD_CANDIDATES = ("gateway_transaction_id", "custom_gateway_transaction_id")
+PAYMENT_STATUS_FIELD_CANDIDATES = ("payment_status", "custom_payment_status")
 
-# Which conference days each pass package covers: Day 1 is the conference's
-# start date, Day 2 the day after - the same rule the Server Scripts use.
-PACKAGE_DAYS = {
-	"Day 1": (1,),
-	"Day 2": (2,),
-	"Both Days": (1, 2),
-	"Technical Sessions - Day 1": (1,),
-	"Technical Sessions - Day 2": (2,),
-	"Day 1 + Technical Sessions - Day 2": (1, 2),
+# Payment Request statuses a failed checkout is left in. The gateway return
+# script records a failure (a decline, or the payer pressing Cancel) on the
+# request's `payment_status` field and leaves the standard `status` at
+# "Requested", so the same request can be reused when they try again.
+OPEN_STATUSES = ("Requested", "Initiated")
+
+# What each Conference Package buys, split the way the conference pass Server
+# Script splits it (CA_PACKAGE_DAYS / CA_TECH_PACKAGE_DAYS / CA_COMBO_PACKAGES -
+# keep in step): `pass` days the participant may attend, `tech` days they may
+# book Technical Session slots on. Day 1 is the conference's start date, Day 2
+# the day after.
+PACKAGES = {
+	"Day 1": {"pass": (1,)},
+	"Day 2": {"pass": (2,)},
+	"Both Days": {"pass": (1, 2)},
+	"Technical Sessions - Day 1": {"tech": (1,)},
+	"Technical Sessions - Day 2": {"tech": (2,)},
+	"Day 1 + Technical Sessions - Day 2": {"pass": (1,), "tech": (2,)},
 }
+
+# Which conference days each package covers, either way.
+PACKAGE_DAYS = {
+	package: tuple(sorted(set(parts.get("pass", ()) + parts.get("tech", ()))))
+	for package, parts in PACKAGES.items()
+}
+
+# payment_type values - what kind of thing a Payment Request paid for. The
+# emails choose their subject and wording by it.
+TYPE_PASS = "Conference Pass"
+TYPE_TECH = "Technical Sessions"
+TYPE_PASS_AND_TECH = "Conference Pass + Technical Sessions"
+TYPE_SLOT = "Session Slot"
+TYPE_SESSION = "Session"
 
 # How far back a sweep will look. This is a SAFETY RAIL, not a tuning knob:
 # without it, installing this app on a site with years of paid requests would
@@ -103,6 +127,38 @@ def transaction_id_field():
 	return _resolve_field("Payment Request", TRANSACTION_ID_FIELD_CANDIDATES)
 
 
+def payment_status_field():
+	return _resolve_field("Payment Request", PAYMENT_STATUS_FIELD_CANDIDATES)
+
+
+def outcome(payment_request):
+	""""Paid", "Failed", or None while the payment is still open.
+
+	Paid ONLY on the standard `status`: that is what settlement writes once the
+	gateway has verified the money, and a receipt must never rest on anything
+	weaker. Failed on either signal - the standard status, or the `payment_status`
+	the gateway return script stamps on a decline or a cancel while leaving the
+	request "Requested". Reading only `status` here is what once sent a receipt
+	for a payment the participant had cancelled.
+	"""
+	status_field = payment_status_field()
+	fields = ["status"] + ([status_field] if status_field else [])
+	row = frappe.db.get_value("Payment Request", payment_request, fields, as_dict=True)
+
+	if not row:
+		return None
+
+	if row.status == "Paid":
+		return "Paid"
+
+	if row.status == "Failed" or (
+		row.status in OPEN_STATUSES and status_field and row.get(status_field) == "Failed"
+	):
+		return "Failed"
+
+	return None
+
+
 def pass_context(payment_request, conference):
 	"""The pass-specific part of a receipt: which package, and which dates it covers."""
 	field = package_field()
@@ -117,6 +173,47 @@ def pass_context(payment_request, conference):
 			for day in PACKAGE_DAYS[package]
 		)
 
+	parts = PACKAGES.get(package) or {}
+	pass_days = parts.get("pass", ())
+	tech_days = parts.get("tech", ())
+
+	def dates(days):
+		if not (start and days):
+			return None
+		return _join(
+			frappe.utils.formatdate(frappe.utils.add_days(start, day - 1), "d MMMM yyyy") for day in days
+		)
+
+	def day_names(days):
+		return "Both Days" if tuple(days) == (1, 2) else _join("Day %d" % (day,) for day in days)
+
+	if pass_days and tech_days:
+		payment_type = TYPE_PASS_AND_TECH
+		purchase_title = "Conference Pass (%s) + Technical Sessions (%s)" % (
+			day_names(pass_days),
+			day_names(tech_days),
+		)
+	elif tech_days:
+		payment_type = TYPE_TECH
+		purchase_title = "Technical Sessions (%s)" % (day_names(tech_days),)
+	else:
+		# A package this app does not know yet still reads as a pass - that is
+		# what everything sold against the Conference was until now.
+		payment_type = TYPE_PASS
+		purchase_title = "Conference Pass (%s)" % (day_names(pass_days) if pass_days else package or "")
+		purchase_title = purchase_title.replace(" ()", "")
+
+	# The rows of the details table that say what the package covers.
+	package_rows = []
+	if pass_days:
+		package_rows.append(("Conference pass", day_names(pass_days)))
+		package_rows.append(("Valid on", dates(pass_days)))
+	if tech_days:
+		package_rows.append(("Technical sessions", day_names(tech_days)))
+		package_rows.append(("Slot booking for", dates(tech_days)))
+	if not parts and package:
+		package_rows.append(("Conference pass", package))
+
 	return {
 		"pass_package": package,
 		"session_title": (
@@ -124,7 +221,98 @@ def pass_context(payment_request, conference):
 			else ("Conference Pass - %s" % (package,) if package else "Conference Pass")
 		),
 		"pass_days_display": days_display,
+		"payment_type": payment_type,
+		"purchase_title": purchase_title,
+		"package_rows": package_rows,
+		"pass_day_names": day_names(pass_days) if pass_days else None,
+		"pass_dates": dates(pass_days),
+		"tech_day_names": day_names(tech_days) if tech_days else None,
+		"tech_dates": dates(tech_days),
 	}
+
+
+def _join(items):
+	"""'a', 'a and b', 'a, b and c'."""
+	items = [str(item) for item in items if item]
+	if len(items) < 2:
+		return "".join(items)
+	return "%s and %s" % (", ".join(items[:-1]), items[-1])
+
+
+def _with(text, value, template):
+	return text + (template % (value,) if value else "")
+
+
+def outcome_notes(context):
+	"""(confirmation_note, failure_note): one sentence each on what the payment
+	means for THIS purchase - a Day 2 pass, a Technical Sessions day, a slot.
+
+	Plain text; the email escapes it. Built here rather than in the template so
+	every kind of sale is covered by the tests, not just the one in a preview.
+	"""
+	c = context
+	conference = c.get("conference")
+	kind = c.get("payment_type")
+
+	if kind == TYPE_PASS:
+		days = c.get("pass_day_names")
+		if days == "Both Days":
+			which = _with("conference pass for both days", conference, " of %s")
+		else:
+			which = _with("%s conference pass" % (days,) if days else "conference pass", conference, " for %s")
+		return (
+			_with("Your %s is confirmed." % (which,), c.get("pass_dates"), " It is valid on %s."),
+			"your %s has not been issued" % (which,),
+		)
+
+	if kind == TYPE_TECH:
+		day = c.get("tech_day_names") or "the conference"
+		on = (" on %s" % (c["tech_dates"],)) if c.get("tech_dates") else ""
+		return (
+			"Your Technical Sessions access for %s%s is confirmed. You can now book your time slots%s "
+			"in the UCIC app." % (day, _with("", conference, " of %s"), on),
+			"you cannot book Technical Session slots for %s yet" % (day,),
+		)
+
+	if kind == TYPE_PASS_AND_TECH:
+		pass_part = _with("%s conference pass" % (c.get("pass_day_names"),), c.get("pass_dates"), " (valid on %s)")
+		tech_part = _with("Technical Sessions access for %s" % (c.get("tech_day_names"),), c.get("tech_dates"), " (%s)")
+		return (
+			"Your %s and %s are confirmed. You can now book your %s time slots in the UCIC app."
+			% (pass_part, tech_part, c.get("tech_day_names")),
+			"your %s conference pass and %s Technical Sessions access have not been issued"
+			% (c.get("pass_day_names"), c.get("tech_day_names")),
+		)
+
+	session = c.get("session_title") or "the session"
+	when = _with("", c.get("session_date_display"), " on %s")
+
+	if kind == TYPE_SLOT:
+		slot = (
+			", %s - %s" % (_hm(c["slot_from"]), _hm(c["slot_to"]))
+			if c.get("slot_from") and c.get("slot_to")
+			else ""
+		)
+		where = _with("", c.get("venue"), ", %s")
+		return (
+			"Your time slot in %s%s%s%s is confirmed." % (session, when, slot, where),
+			"your time slot in %s has not been confirmed" % (session,),
+		)
+
+	where = _with("", c.get("venue"), " in %s")
+	return (
+		"Your place in %s%s%s is confirmed." % (session, when, where),
+		"your place in %s has not been confirmed" % (session,),
+	)
+
+
+def _hm(value):
+	"""10:15 from "10:15:00" or a timedelta - Frappe returns Time fields as either."""
+	parts = str(value).split(":")
+	try:
+		return "%02d:%02d" % (int(parts[0]), int(parts[1]))
+	except (ValueError, IndexError):
+		return str(value)
 
 
 def build_context(payment_request):
@@ -211,7 +399,7 @@ def build_context(payment_request):
 
 	passed = pass_context(payment_request, pr.reference_name) if is_pass else {}
 
-	return {
+	context = {
 		"recipient": recipient,
 		"receipt_no": pr.name,
 		"participant": participant_name or pr.party,
@@ -243,7 +431,22 @@ def build_context(payment_request):
 		else None,
 		"paid_on_display": frappe.utils.format_datetime(paid_on, "d MMMM yyyy, HH:mm"),
 		"amount_display": frappe.utils.fmt_money(pr.grand_total, currency=pr.currency),
+		# "Paid" / "Failed" / None - which email this context is for.
+		"payment_status": outcome(payment_request),
+		# WHAT WAS BOUGHT, so the subject and wording can say so: a Day 2 pass,
+		# Technical Sessions for a day, a slot, a whole session. See outcome_notes.
+		"payment_type": passed.get("payment_type") or (TYPE_SLOT if slot else TYPE_SESSION),
+		"purchase_title": passed.get("purchase_title") or schedule.get("session_title"),
+		"package_rows": passed.get("package_rows") or [],
+		"pass_day_names": passed.get("pass_day_names"),
+		"pass_dates": passed.get("pass_dates"),
+		"tech_day_names": passed.get("tech_day_names"),
+		"tech_dates": passed.get("tech_dates"),
 	}
+
+	context["confirmation_note"], context["failure_note"] = outcome_notes(context)
+
+	return context
 
 
 def send_receipt(payment_request, force=False):
@@ -260,6 +463,13 @@ def send_receipt(payment_request, force=False):
 			"that a receipt was sent - and therefore no way to avoid sending it twice. "
 			"Run `bench --site <site> migrate` to have this app create it."
 		)
+
+	# Not even with `force`: a receipt for money that never arrived is worse
+	# than no email at all.
+	if outcome(payment_request) != "Paid":
+		if force:
+			frappe.throw("Payment Request %s is not Paid, so there is no receipt to send." % (payment_request,))
+		return False
 
 	if not force and frappe.db.get_value("Payment Request", payment_request, field):
 		return False
@@ -312,12 +522,10 @@ def send_failure_notice(payment_request, force=False):
 			"Run `bench --site <site> migrate` to have this app create it."
 		)
 
-	row = frappe.db.get_value("Payment Request", payment_request, ["status", field], as_dict=True)
-
-	if not row or row.status != "Failed":
+	if outcome(payment_request) != "Failed":
 		return False
 
-	if not force and row.get(field):
+	if not force and frappe.db.get_value("Payment Request", payment_request, field):
 		return False
 
 	context = build_context(payment_request)
@@ -354,13 +562,17 @@ def send_receipt_now(payment_request):
 		frappe.enqueue("ucic_notifications.receipts.send_receipt_now",
 			queue="short", enqueue_after_commit=True, payment_request=name)
 
+	A payment that is neither (still open) gets nothing.
+
 	Never raises into the caller - the minute sweep is the backstop.
 	"""
 	try:
-		status = frappe.db.get_value("Payment Request", payment_request, "status")
-		if status == "Failed":
+		result = outcome(payment_request)
+		if result == "Paid":
+			return send_receipt(payment_request)
+		if result == "Failed":
 			return send_failure_notice(payment_request)
-		return send_receipt(payment_request)
+		return False
 	except Exception:
 		frappe.log_error(
 			title="Payment receipt failed",
@@ -416,8 +628,7 @@ def _unnotified(status, field, max_age_days, limit):
 	if not field:
 		return []
 
-	filters = {
-		"status": status,
+	base = {
 		"docstatus": 1,
 		"party_type": "Participant",
 		"reference_doctype": ["in", list(RECEIPTABLE_REFERENCE_DOCTYPES)],
@@ -425,15 +636,31 @@ def _unnotified(status, field, max_age_days, limit):
 	}
 
 	if max_age_days:
-		filters["modified"] = [">=", frappe.utils.add_days(frappe.utils.nowdate(), -int(max_age_days))]
+		base["modified"] = [">=", frappe.utils.add_days(frappe.utils.nowdate(), -int(max_age_days))]
 
-	return frappe.get_all(
-		"Payment Request",
-		filters=filters,
-		fields=["name"],
-		order_by="modified asc",
-		limit_page_length=limit,
-	)
+	# One query per way a request can be in this state - see outcome().
+	variants = [{"status": status}]
+
+	status_field = payment_status_field()
+	if status == "Failed" and status_field:
+		variants.append({"status": ["in", list(OPEN_STATUSES)], status_field: "Failed"})
+
+	rows = []
+	seen = set()
+
+	for variant in variants:
+		for row in frappe.get_all(
+			"Payment Request",
+			filters=dict(base, **variant),
+			fields=["name"],
+			order_by="modified asc",
+			limit_page_length=limit,
+		):
+			if row.name not in seen:
+				seen.add(row.name)
+				rows.append(row)
+
+	return rows[:limit] if limit else rows
 
 
 def sweep(max_age_days=DEFAULT_MAX_AGE_DAYS, limit=DEFAULT_LIMIT):

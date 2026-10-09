@@ -5,9 +5,12 @@ Two of them, both addressed from "UCIC Notification Settings" in Desk:
 - HELP & SUPPORT. Every Support Request is mailed to Support Email 1 and
   Support Email 2. The app's `save_support_request` Server Script creates it
   with `insert()`, which DOES run the document lifecycle - so unlike payments,
-  a plain `after_insert` hook works here. The send is enqueued after commit:
-  a request that is rolled back is never mailed, and a slow mail server never
-  slows the participant's "Send" button.
+  a plain `after_insert` hook works here. The mail is queued in the same
+  transaction as the request (a rolled-back request is never mailed) and sent
+  by this web request straight after the commit - the same path as the Send
+  Test Emails button. It does NOT go through a background job: a worker that
+  is down, or was started before this app was installed and cannot import it,
+  would lose the email silently while the request itself saved fine.
 
 - PAYMENT FAILURES. Every Failed Payment Request is mailed once to the Payment
   Failure Email. A payment reaches Failed through `frappe.db.set_value` in the
@@ -75,20 +78,39 @@ def on_support_request_insert(doc, method=None):
 	"""doc_events hook. Never raises: the participant's request is already saved,
 	and that matters more than the email about it."""
 	try:
-		if not support_recipients():
-			return
-
-		frappe.enqueue(
-			"ucic_notifications.staff_alerts.send_support_request_email",
-			queue="short",
-			enqueue_after_commit=True,
-			support_request=doc.name,
-		)
+		send_support_request_email(doc.name)
 	except Exception:
 		frappe.log_error(
-			title="Support Request email not queued",
+			title="Support Request email not sent",
 			message="Support Request %s\n\n%s" % (doc.name, frappe.get_traceback()),
 		)
+
+
+def _send_after_commit(queue):
+	"""Send a queued mail once the transaction commits, without ever raising.
+
+	What `frappe.sendmail(now=True)` does on Frappe 16, minus the risk: there an
+	SMTP error escapes from the commit - inside save_support_request's own
+	try/except, which would roll back and tell the participant their request
+	failed when it had in fact been saved. Here a failure is logged, and the
+	mail stays in the Email Queue for Frappe's regular flush to retry.
+	"""
+	if isinstance(queue, list):
+		queue = queue[0] if queue else None
+
+	if not queue:
+		return
+
+	def send():
+		try:
+			queue.send()
+		except Exception:
+			frappe.log_error(
+				title="Support Request email will be retried",
+				message="Email Queue %s\n\n%s" % (queue.name, frappe.get_traceback()),
+			)
+
+	frappe.db.after_commit.add(send)
 
 
 def send_support_request_email(support_request):
@@ -135,7 +157,7 @@ def send_support_request_email(support_request):
 		link_url=frappe.utils.get_url_to_form(SUPPORT_DOCTYPE, req.name),
 	)
 
-	frappe.sendmail(
+	queue = frappe.sendmail(
 		recipients=recipients,
 		subject="[Help & Support] %s" % (req.subject or req.name),
 		message=message,
@@ -143,8 +165,9 @@ def send_support_request_email(support_request):
 		reply_to=req.email or None,
 		reference_doctype=SUPPORT_DOCTYPE,
 		reference_name=req.name,
-		now=True,
 	)
+
+	_send_after_commit(queue)
 
 	return True
 
@@ -162,12 +185,12 @@ def send_failure_alert(payment_request, force=False):
 	if not recipients or not field:
 		return False
 
-	row = frappe.db.get_value("Payment Request", payment_request, ["status", field], as_dict=True)
-
-	if not row or row.status != "Failed":
+	# receipts.outcome, not `status`: a declined or cancelled checkout is
+	# Failed on `payment_status` while its status stays "Requested".
+	if receipts.outcome(payment_request) != "Failed":
 		return False
 
-	if not force and row.get(field):
+	if not force and frappe.db.get_value("Payment Request", payment_request, field):
 		return False
 
 	pr = frappe.db.get_value(

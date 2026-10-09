@@ -5,6 +5,7 @@ means "send nothing", each failure is reported once, and none of it can break
 the participant-facing flows it reports on.
 """
 
+from tests import frappe_stub
 from tests.frappe_stub import STATE
 from tests.test_receipts import PR, seed
 from ucic_notifications import receipts, staff_alerts
@@ -78,13 +79,30 @@ class TestSupportRequest:
         assert "I paid but the pass page is empty.<br>" in body
         assert "<b>help</b>" not in body and "&lt;b&gt;help&lt;/b&gt;" in body
 
-    def test_sent_after_commit_not_inline(self):
+    def test_sent_right_after_commit_without_a_background_job(self):
         configure()
         seed_support_request()
 
         staff_alerts.on_support_request_insert(_Doc())
 
-        assert STATE.enqueued == [("ucic_notifications.staff_alerts.send_support_request_email", {"support_request": SR})]
+        # Queued with the request, nothing handed to a worker...
+        assert len(STATE.mails) == 1 and STATE.enqueued == []
+        assert "now" not in STATE.mails[0]
+        # ...and not sent until the request is committed.
+        assert STATE.delivered == []
+        frappe_stub.commit()
+        assert len(STATE.delivered) == 1
+
+    def test_an_smtp_error_after_commit_never_reaches_the_server_script(self):
+        configure()
+        seed_support_request()
+        STATE.smtp_error = "SMTP down"
+
+        staff_alerts.on_support_request_insert(_Doc())
+        frappe_stub.commit()  # must not raise
+
+        assert STATE.delivered == []
+        assert STATE.errors[0][0] == "Support Request email will be retried"
 
     def test_only_one_address_set(self):
         configure(support_2="")
@@ -130,7 +148,7 @@ class TestSupportRequest:
 
         staff_alerts.on_support_request_insert(_Doc())  # must not raise
 
-        assert STATE.errors and STATE.errors[0][0] == "Support Request email not queued"
+        assert STATE.errors and STATE.errors[0][0] == "Support Request email not sent"
 
 
 class TestPaymentFailureAlert:
@@ -207,3 +225,17 @@ class TestPaymentFailureAlert:
         staff_alerts.sweep()
 
         assert STATE.mails == []
+
+
+def test_cancelled_at_gateway_alerts_the_team():
+    """payment_status Failed while status stays Requested - the shape the gateway
+    return script leaves behind for a cancel or a decline."""
+    configure()
+    seed_failed()
+    STATE.fields["Payment Request"].add("custom_payment_status")
+    STATE.records["Payment Request"][PR].update(status="Requested", custom_payment_status="Failed")
+
+    staff_alerts.sweep()
+
+    (mail,) = STATE.mails
+    assert mail["subject"].startswith("[Payment failed]")

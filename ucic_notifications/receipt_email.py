@@ -27,14 +27,37 @@ FAILURE_LAYOUT = "ucic_notifications/templates/emails/payment_failed.html"
 
 # Plain Jinja with no quoted strings: the Text Editor may store quotes as
 # entities, which would break a `{{ x or "y" }}` an organiser copied from here.
-DEFAULT_SUBJECT = "Payment receipt{% if session_title %} - {{ session_title }}{% else %} {{ receipt_no }}{% endif %}"
+#
+# Both follow WHAT WAS BOUGHT: {{ purchase_title }} reads "Conference Pass (Day 2)",
+# "Technical Sessions (Day 1)", "Conference Pass (Day 1) + Technical Sessions
+# (Day 2)" or the session's own title, and {{ confirmation_note }} is a sentence
+# on what the payment now gives them - see receipts.outcome_notes.
+DEFAULT_SUBJECT = (
+	"Payment successful{% if purchase_title %} - {{ purchase_title }}{% else %} - {{ receipt_no }}{% endif %}"
+	"{% if conference %} - {{ conference }}{% endif %}"
+)
 
 DEFAULT_BODY = (
 	"<p>{% if participant %}Dear {{ participant }},{% else %}Hello,{% endif %}</p>"
 	"<p>Thank you - we have received your payment"
-	"{% if session_title %} for <strong>{{ session_title }}</strong>{% endif %}. "
-	"Your receipt is below; please keep it for your records.</p>"
+	"{% if purchase_title %} for <strong>{{ purchase_title }}</strong>{% endif %}."
+	"{% if confirmation_note %} {{ confirmation_note }}{% endif %}</p>"
+	"<p>Your receipt is below; please keep it for your records.</p>"
 )
+
+# What every site was seeded with before the wording followed the purchase. The
+# upgrade_receipt_email_wording patch swaps these for the defaults above - but
+# only where the saved text is still exactly this, so an organiser's own wording
+# is never overwritten.
+PREVIOUS_DEFAULTS = {
+	"email_subject": "Payment receipt{% if session_title %} - {{ session_title }}{% else %} {{ receipt_no }}{% endif %}",
+	"email_body": (
+		"<p>{% if participant %}Dear {{ participant }},{% else %}Hello,{% endif %}</p>"
+		"<p>Thank you - we have received your payment"
+		"{% if session_title %} for <strong>{{ session_title }}</strong>{% endif %}. "
+		"Your receipt is below; please keep it for your records.</p>"
+	),
+}
 
 DEFAULT_FOOTER = (
 	"<p>This is a computer-generated receipt and needs no signature.</p>"
@@ -117,12 +140,12 @@ def render(context, overrides=None):
 	return subject, frappe.render_template(LAYOUT, layout)
 
 
-FAILURE_SUBJECT = "Payment unsuccessful{session}"
+FAILURE_SUBJECT = "Payment could not be completed{purchase}{conference}"
 
 FAILURE_BODY = (
 	"<p>{greeting}</p>"
-	"<p>Unfortunately your payment{for_what} <strong>did not go through</strong>, "
-	"so your booking has not been completed.</p>"
+	"<p>Unfortunately your payment{for_what} <strong>could not be completed</strong>, "
+	"so {consequence}.</p>"
 	"<p>You can go back to the UCIC app and try the payment again. If the amount "
 	"has been deducted from your account, or you need any help, simply reply to "
 	"this email with the reference below and the organising team will sort it out.</p>"
@@ -140,19 +163,24 @@ def render_failure(context):
 	brand = tpl.brand_color
 	on_brand = _text_on(brand)
 
-	title = context.get("session_title")
+	title = context.get("purchase_title") or context.get("session_title")
 	name = context.get("participant")
+	conference = context.get("conference")
 
-	subject = FAILURE_SUBJECT.format(session=(" - %s" % title) if title else " - %s" % context.get("receipt_no"))
+	subject = FAILURE_SUBJECT.format(
+		purchase=" - %s" % (title or context.get("receipt_no"),),
+		conference=(" - %s" % conference) if conference else "",
+	)
 	body = FAILURE_BODY.format(
 		greeting=("Dear %s," % html.escape(name)) if name else "Hello,",
 		for_what=(" for <strong>%s</strong>" % html.escape(title)) if title else "",
+		consequence=html.escape(context.get("failure_note") or "your booking has not been confirmed"),
 	)
 
 	layout = dict(
 		context,
 		body_html=body,
-		header_title=tpl.header_title or context.get("conference") or "Payment unsuccessful",
+		header_title=tpl.header_title or context.get("conference") or "Payment could not be completed",
 		logo_url=_absolute_url(tpl.logo),
 		details=[
 			# "Reference" is already this email's name for the receipt number
@@ -189,7 +217,11 @@ def details_rows(context, when_label="Paid on"):
 	c = context
 	rows = [("Receipt no.", c.get("receipt_no"))]
 
-	if c.get("pass_package"):
+	if c.get("package_rows"):
+		# Labelled by what the package covers: "Conference pass: Day 2",
+		# "Technical sessions: Day 1", or both for a combined package.
+		rows.extend(c["package_rows"])
+	elif c.get("pass_package"):
 		rows.append(("Conference pass", c["pass_package"]))
 		if c.get("pass_days_display"):
 			rows.append(("Valid on", c["pass_days_display"]))
@@ -242,6 +274,12 @@ def sample_context():
 		"session_date_display": "24 August 2026",
 		"paid_on_display": "20 August 2026, 09:25",
 		"amount_display": "LKR 2,500.00",
+		"payment_status": "Paid",
+		"payment_type": "Session Slot",
+		"purchase_title": "3-Minute Research",
+		"package_rows": [],
+		"confirmation_note": "Your time slot in 3-Minute Research on 24 August 2026, 10:15 - 10:18, Hall A is confirmed.",
+		"failure_note": "your time slot in 3-Minute Research has not been confirmed",
 	}
 
 

@@ -41,6 +41,9 @@ class Stub:
 		self.fields = {}
 		self.mails = []
 		self.enqueued = []
+		self.after_commit = []
+		self.delivered = []
+		self.smtp_error = None
 		self.errors = []
 		self.logs = []
 		self.now = "2026-09-17 09:30:00"
@@ -130,8 +133,31 @@ def _matches(row, filters):
 	return True
 
 
+class _EmailQueue:
+	def __init__(self, kwargs):
+		self.name = "EQ-%04d" % (len(STATE.mails),)
+		self.kwargs = kwargs
+
+	def send(self):
+		if STATE.smtp_error:
+			raise RuntimeError(STATE.smtp_error)
+		STATE.delivered.append(self.kwargs)
+
+
 def _sendmail(**kwargs):
 	STATE.mails.append(kwargs)
+	return _EmailQueue(kwargs)
+
+
+class _AfterCommit:
+	def add(self, fn):
+		STATE.after_commit.append(fn)
+
+
+def commit():
+	"""Run what was registered to happen after commit, as Frappe does."""
+	while STATE.after_commit:
+		STATE.after_commit.pop(0)()
 
 
 def _enqueue(method, queue=None, enqueue_after_commit=False, **kwargs):
@@ -170,7 +196,8 @@ def build_module():
 	frappe.STATE = STATE
 
 	frappe.db = types.SimpleNamespace(
-		exists=_exists, get_value=_get_value, get_singles_dict=_get_singles_dict, set_value=_set_value, sql=lambda *a, **k: None, commit=lambda: None
+		exists=_exists, get_value=_get_value, get_singles_dict=_get_singles_dict, set_value=_set_value, sql=lambda *a, **k: None, commit=commit,
+		after_commit=_AfterCommit(),
 	)
 	frappe.get_all = _get_all
 	frappe.sendmail = _sendmail

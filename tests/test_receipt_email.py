@@ -30,7 +30,7 @@ class TestEditableWording:
         seed()
         mail = sent()
 
-        assert mail["subject"] == "Payment receipt - 3-Minute Research"
+        assert mail["subject"] == "Payment successful - 3-Minute Research - UCIC 2026"
         assert "Dear Ranmal Perera," in mail["message"]
         assert "computer-generated receipt" in mail["message"]
 
@@ -53,7 +53,7 @@ class TestEditableWording:
         saved(email_subject="", email_body="", email_footer="", brand_color="#1f3a68")
         mail = sent()
 
-        assert mail["subject"] == "Payment receipt - 3-Minute Research"
+        assert mail["subject"] == "Payment successful - 3-Minute Research - UCIC 2026"
         assert "Dear Ranmal Perera," in mail["message"]
         assert "computer-generated" not in mail["message"]
 

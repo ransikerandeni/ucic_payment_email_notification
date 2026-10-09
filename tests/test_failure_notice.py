@@ -18,10 +18,10 @@ def test_failed_payment_gets_a_failure_email():
 
     (mail,) = STATE.mails
     assert mail["recipients"] == ["ranmal@example.com"]
-    assert mail["subject"].startswith("Payment unsuccessful")
-    assert "did not go through" in mail["message"]
-    assert "PAYMENT FAILED" in mail["message"]
-    assert "PAID" not in mail["message"].replace("PAYMENT FAILED", "")
+    assert mail["subject"].startswith("Payment could not be completed")
+    assert "could not be completed" in mail["message"]
+    assert "PAYMENT NOT COMPLETED" in mail["message"]
+    assert "PAID" not in mail["message"].replace("PAYMENT NOT COMPLETED", "")
 
 
 def test_failure_email_is_sent_once():
@@ -46,7 +46,7 @@ def test_sweep_sends_failure_notice_and_not_a_receipt():
     receipts.sweep()
 
     (mail,) = STATE.mails
-    assert mail["subject"].startswith("Payment unsuccessful")
+    assert mail["subject"].startswith("Payment could not be completed")
 
 
 def test_send_receipt_now_picks_by_status():
@@ -54,7 +54,7 @@ def test_send_receipt_now_picks_by_status():
 
     receipts.send_receipt_now(PR)
 
-    assert STATE.mails[0]["subject"].startswith("Payment unsuccessful")
+    assert STATE.mails[0]["subject"].startswith("Payment could not be completed")
 
 
 class TestAppTriggeredNotification:
@@ -71,7 +71,7 @@ class TestAppTriggeredNotification:
 
         receipts.notify_outcome_for_user(PR, "login@example.com")
 
-        assert STATE.mails[0]["subject"].startswith("Payment unsuccessful")
+        assert STATE.mails[0]["subject"].startswith("Payment could not be completed")
 
     def test_calling_twice_mails_once(self):
         seed()
@@ -92,3 +92,66 @@ class TestAppTriggeredNotification:
             receipts.notify_outcome_for_user(PR, "other@example.com")
 
         assert STATE.mails == []
+
+
+def seed_cancelled():
+    """What the gateway return script leaves behind when the payer presses Cancel
+    (or the card is declined): payment_status Failed, status still Requested."""
+    seed()
+    STATE.fields["Payment Request"] = {
+        "receipt_sent_on",
+        "failure_notified_on",
+        "slot_allocation_row",
+        "custom_payment_status",
+    }
+    STATE.records["Payment Request"][PR].update(
+        status="Requested", custom_payment_status="Failed", failure_notified_on=None
+    )
+
+
+class TestCancelledAtGateway:
+    def test_app_trigger_sends_failure_notice_not_receipt(self):
+        seed_cancelled()
+        STATE.put("User", "login@example.com", email="login@example.com")
+
+        receipts.notify_outcome_for_user(PR, "login@example.com")
+
+        (mail,) = STATE.mails
+        assert mail["subject"].startswith("Payment could not be completed")
+        assert "could not be completed" in mail["message"]
+        assert not STATE.records["Payment Request"][PR].get("receipt_sent_on")
+
+    def test_receipt_is_refused(self):
+        seed_cancelled()
+
+        assert receipts.send_receipt(PR) is False
+        assert STATE.mails == []
+
+    def test_forced_resend_is_refused(self):
+        import pytest
+
+        seed_cancelled()
+
+        with pytest.raises(Exception):
+            receipts.send_receipt(PR, force=True)
+
+        assert STATE.mails == []
+
+    def test_sweep_sends_failure_notice(self):
+        seed_cancelled()
+
+        receipts.sweep()
+
+        (mail,) = STATE.mails
+        assert mail["subject"].startswith("Payment could not be completed")
+
+
+def test_an_open_payment_gets_no_email():
+    seed()
+    STATE.fields["Payment Request"] = {"receipt_sent_on", "failure_notified_on", "custom_payment_status"}
+    STATE.records["Payment Request"][PR].update(status="Requested", custom_payment_status="Pending")
+    STATE.put("User", "login@example.com", email="login@example.com")
+
+    assert receipts.notify_outcome_for_user(PR, "login@example.com") is False
+    receipts.sweep()
+    assert STATE.mails == []

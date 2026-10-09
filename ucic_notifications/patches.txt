@@ -5,3 +5,4 @@
 ucic_notifications.patches.seed_receipt_email_template
 ucic_notifications.patches.stamp_existing_failed_payments
 ucic_notifications.patches.stamp_existing_failures_for_staff_alerts
+ucic_notifications.patches.upgrade_receipt_email_wording

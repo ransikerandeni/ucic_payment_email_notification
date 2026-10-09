@@ -3,7 +3,7 @@
 Email for the UCIC conference system:
 
 - **to participants** - a payment receipt after their payment settles, or a
-  "payment unsuccessful" notice when it fails;
+  "payment could not be completed" notice when it fails;
 - **to the organising team** (0.5.0+) - every Help & Support request, and an
   alert for every failed payment, sent to addresses set in **UCIC Notification
   Settings**.
@@ -348,7 +348,7 @@ fails the suite when removed.
 
 ## Failed payments
 
-A Payment Request that reaches **Failed** gets a "payment unsuccessful" email
+A Payment Request that reaches **Failed** gets a "payment could not be completed" email
 (`receipts.send_failure_notice`), sent once, guarded by `failure_notified_on`
 (clear it to re-send). Same recipient rules, same minute sweep, and the same
 header, logo and colour as the receipt. Its wording is fixed in
@@ -373,10 +373,13 @@ the saved addresses.
 **Help & Support** uses a `doc_events` `after_insert` hook on **Support
 Request**. That works here, unlike for payments, because the
 `save_support_request` Server Script creates the request with `insert()`. The
-mail is enqueued *after commit* (so a rolled-back request is never mailed and a
-slow mail server never slows the app), and the hook never raises - a mail
-problem is logged to **Error Log** and the participant's request still saves.
-The Server Script itself is unchanged.
+mail is queued together with the request (so a rolled-back request is never
+mailed) and sent by that same web request right after it commits - the same
+path as **Send Test Emails**, with **no background job**, so it does not
+depend on the workers. The hook never raises: a mail problem is logged to
+**Error Log** ("Support Request email ...") and the participant's request still
+saves; a mail that could not be sent stays in **Email Queue** and Frappe's
+regular queue flush retries it. The Server Script itself is unchanged.
 
 **Payment failures** are found by a second minute sweep
 (`staff_alerts.sweep`), guarded by its own `staff_failure_alert_on` field on

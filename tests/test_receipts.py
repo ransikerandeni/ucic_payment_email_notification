@@ -151,7 +151,7 @@ class TestConferencePass:
     def test_the_sweep_receipts_a_pass(self):
         seed_pass(package="Day 1")
         assert receipts.sweep() == {"sent": 1, "failed": 0}
-        assert STATE.mails[0]["subject"] == "Payment receipt - Conference Pass - Day 1"
+        assert STATE.mails[0]["subject"] == "Payment successful - Conference Pass (Day 1) - UCIC 2026"
 
 
 class TestSendOnce:
