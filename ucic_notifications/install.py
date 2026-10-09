@@ -5,6 +5,7 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from ucic_notifications import receipt_email
 from ucic_notifications.receipts import RECEIPTABLE_REFERENCE_DOCTYPES, failure_field, receipt_field
+from ucic_notifications.staff_alerts import staff_failure_field
 
 CUSTOM_FIELDS = {
 	"Payment Request": [
@@ -29,6 +30,15 @@ CUSTOM_FIELDS = {
 			"allow_on_submit": 1,
 			"description": "When the participant was emailed that this payment failed. Clear it to re-send.",
 		},
+		{
+			"fieldname": "staff_failure_alert_on",
+			"label": "Staff Failure Alert On",
+			"fieldtype": "Datetime",
+			"insert_after": "failure_notified_on",
+			"read_only": 1,
+			"allow_on_submit": 1,
+			"description": "When the organising team (UCIC Notification Settings > Payment Failure Email) was emailed that this payment failed. Clear it to re-send.",
+		},
 	]
 }
 
@@ -38,6 +48,7 @@ def after_install():
 	seed_receipt_email_template()
 	backfill_existing()
 	backfill_existing_failures()
+	backfill_existing_staff_failure_alerts()
 
 
 def after_migrate():
@@ -113,6 +124,33 @@ def backfill_existing_failures():
 	that failed before now counts as handled, so installing or updating never
 	emails anyone about a failure from weeks ago."""
 	field = failure_field()
+
+	if not field:
+		return 0
+
+	stamped = frappe.db.sql(
+		"""
+		UPDATE `tabPayment Request`
+		SET `%s` = %%s
+		WHERE status = 'Failed'
+		  AND docstatus = 1
+		  AND (`%s` IS NULL OR `%s` = '')
+		  AND reference_doctype IN %%s
+		"""
+		% (field, field, field),
+		(frappe.utils.now(), RECEIPTABLE_REFERENCE_DOCTYPES),
+	)
+
+	frappe.db.commit()
+
+	return stamped
+
+
+def backfill_existing_staff_failure_alerts():
+	"""Same line-drawing again, for the team's failure alert: failures from before
+	this install / update count as handled, so the team is not sent a burst of
+	alerts about old payments the moment an address is set."""
+	field = staff_failure_field()
 
 	if not field:
 		return 0

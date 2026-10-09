@@ -66,6 +66,21 @@ class TestBuildContext:
         assert ctx["gateway_reference"] == "WX-99881"
         assert (ctx["amount"], ctx["currency"]) == (10.0, "LKR")
 
+    def test_reference_id_comes_from_the_payment_request(self):
+        seed(with_slot=False)
+        STATE.fields["Payment Request"].add("custom_gateway_transaction_id")
+        STATE.records["Payment Request"][PR]["custom_gateway_transaction_id"] = "7902294473696640104010"
+
+        # A whole-session sale has no slot row, so this is the only source.
+        assert receipts.build_context(PR)["gateway_reference"] == "7902294473696640104010"
+
+    def test_reference_id_prefers_the_payment_request_over_the_slot_row(self):
+        seed()
+        STATE.fields["Payment Request"].add("custom_gateway_transaction_id")
+        STATE.records["Payment Request"][PR]["custom_gateway_transaction_id"] = "7902294473696640104010"
+
+        assert receipts.build_context(PR)["gateway_reference"] == "7902294473696640104010"
+
     def test_whole_session_sale_has_no_slot_of_its_own(self):
         seed(with_slot=False)
         ctx = receipts.build_context(PR)

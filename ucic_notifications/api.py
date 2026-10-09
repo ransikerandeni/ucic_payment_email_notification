@@ -9,7 +9,7 @@ import json
 
 import frappe
 
-from ucic_notifications import receipt_email, receipts
+from ucic_notifications import receipt_email, receipts, staff_alerts
 
 ORGANISER_ROLES = ("System Manager", "Accounts Manager")
 
@@ -97,3 +97,51 @@ def run_sweep():
 		raise frappe.PermissionError("Only a System Manager can run the receipt sweep.")
 
 	return receipts.sweep()
+
+
+@frappe.whitelist()
+def send_test_staff_alerts():
+	"""A sample of each staff email to the addresses SAVED in UCIC Notification
+	Settings - backs the form's Send Test Emails button."""
+	if "System Manager" not in frappe.get_roles():
+		raise frappe.PermissionError("Only a System Manager can send test staff emails.")
+
+	sent_to = []
+
+	support = staff_alerts.support_recipients()
+	if support:
+		frappe.sendmail(
+			recipients=support,
+			subject="[Test] [Help & Support] Sample request",
+			message=staff_alerts.render(
+				kicker="Help & Support",
+				title="Sample request",
+				intro="This is a test. Real requests from the app's Help & Support dialog will look like this.",
+				details=staff_alerts.sample_support_details(),
+				quote="Hello,\nThis is what a participant's message will look like.",
+			),
+			now=True,
+		)
+		sent_to.extend(support)
+
+	failure = staff_alerts.failure_recipients()
+	if failure:
+		frappe.sendmail(
+			recipients=failure,
+			subject="[Test] [Payment failed] Sample Participant - ACC-PRQ-2026-00001",
+			message=staff_alerts.render(
+				kicker="Payment failed",
+				title="Sample Participant - LKR 2,500.00",
+				intro="This is a test. Real payment failures will look like this.",
+				details=[
+					("Payment Request", "ACC-PRQ-2026-00001"),
+					("Participant", "Sample Participant"),
+					("For", "Conference Pass - Both Days"),
+					("Amount", "LKR 2,500.00"),
+				],
+			),
+			now=True,
+		)
+		sent_to.extend(a for a in failure if a not in sent_to)
+
+	return {"sent_to": sent_to}

@@ -40,6 +40,7 @@ class Stub:
 		# fields that "exist" on a doctype, as {doctype: set(fieldname)}
 		self.fields = {}
 		self.mails = []
+		self.enqueued = []
 		self.errors = []
 		self.logs = []
 		self.now = "2026-09-17 09:30:00"
@@ -77,6 +78,10 @@ def _exists(doctype, filters=None):
 
 
 def _get_value(doctype, name, fieldname=None, as_dict=False, **kwargs):
+	if isinstance(name, dict):
+		# A filters dict: the first record matching every field, as Frappe does.
+		name = next((n for n, r in STATE.records.get(doctype, {}).items() if _matches(r, name)), None)
+
 	row = STATE.records.get(doctype, {}).get(name)
 
 	if row is None:
@@ -129,6 +134,13 @@ def _sendmail(**kwargs):
 	STATE.mails.append(kwargs)
 
 
+def _enqueue(method, queue=None, enqueue_after_commit=False, **kwargs):
+	# Run it inline, as a worker would once the transaction commits.
+	STATE.enqueued.append((method, kwargs))
+	module, _, func = method.rpartition(".")
+	return getattr(__import__(module, fromlist=[func]), func)(**kwargs)
+
+
 def _log_error(title=None, message=None):
 	STATE.errors.append((title, message))
 
@@ -162,6 +174,7 @@ def build_module():
 	)
 	frappe.get_all = _get_all
 	frappe.sendmail = _sendmail
+	frappe.enqueue = _enqueue
 	frappe.log_error = _log_error
 	frappe.render_template = _render_template
 	frappe.get_traceback = lambda: "traceback"
@@ -181,6 +194,7 @@ def build_module():
 	utils.format_datetime = lambda d, fmt=None: "17 September 2026, 09:25"
 	utils.fmt_money = lambda v, currency=None: "%.2f" % float(v)
 	utils.get_url = lambda path="": "https://ucic.example.org" + path
+	utils.get_url_to_form = lambda doctype, name: "https://ucic.example.org/app/%s/%s" % (doctype.lower().replace(" ", "-"), name)
 	frappe.utils = utils
 
 	sys.modules["frappe"] = frappe

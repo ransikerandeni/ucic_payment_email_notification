@@ -4,3 +4,4 @@
 # After the sync, so the Receipt Email Template DocType exists to be filled in.
 ucic_notifications.patches.seed_receipt_email_template
 ucic_notifications.patches.stamp_existing_failed_payments
+ucic_notifications.patches.stamp_existing_failures_for_staff_alerts

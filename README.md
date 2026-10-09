@@ -223,6 +223,37 @@ failure.
 
 ---
 
+## Emails to the organising team (0.5.0+)
+
+Set the addresses in Desk → **UCIC Notification Settings** (System Manager). A
+blank address means "send nothing", so installing or updating changes nothing
+until someone fills the form in. **Send Test Emails** mails a sample of each to
+the saved addresses.
+
+| Field | Gets |
+|---|---|
+| Support Email 1, Support Email 2 | Every **Help & Support** request from the app, the same email to both. Reply goes straight to the participant (`reply_to` is their address) |
+| Payment Failure Email | One alert per **Failed** payment - conference pass and slot payments alike - within a minute of the failure |
+
+**Help & Support** uses a `doc_events` `after_insert` hook on **Support
+Request**. That works here, unlike for payments, because the
+`save_support_request` Server Script creates the request with `insert()`. The
+mail is enqueued *after commit* (so a rolled-back request is never mailed and a
+slow mail server never slows the app), and the hook never raises - a mail
+problem is logged to **Error Log** and the participant's request still saves.
+The Server Script itself is unchanged.
+
+**Payment failures** are found by a second minute sweep
+(`staff_alerts.sweep`), guarded by its own `staff_failure_alert_on` field on
+Payment Request - separate from the participant's `failure_notified_on`, so the
+team is told even when the participant has no email address, and either email
+can be re-sent alone (clear the field). Updating to 0.5.0 stamps every payment
+that had already failed, so the team is only alerted about new failures. Note
+that failures which happen *after* the update but *before* an address is set
+are still picked up (up to 7 days old) once it is set.
+
+---
+
 ## Editing the email
 
 Desk → **Receipt Email Template** (a single form, System Manager / Accounts
@@ -303,7 +334,10 @@ quietly exercising a mock that agrees with everything.
 | `receipts.py` | Finding unreceipted payments, building the context, sending, sweeping |
 | `receipt_email.py` | The editable wording (defaults, fallback, validation) and turning a context into subject + HTML |
 | `ucic_notifications/doctype/receipt_email_template/` | The Desk form, with Preview and Send Test Email buttons |
-| `install.py` | The custom field, and the one-time backfill |
+| `staff_alerts.py` | Emails to the organising team: Help & Support requests and failed payments |
+| `ucic_notifications/doctype/ucic_notification_settings/` | The Desk form holding the team's addresses, with Send Test Emails |
+| `templates/emails/staff_alert.html` | The team email layout |
+| `install.py` | The custom fields, and the one-time backfills |
 | `api.py` | Re-send, preview, test email and manual sweep - all role-guarded |
-| `hooks.py` | Scheduler entry. Deliberately **no** `doc_events` — see above |
+| `hooks.py` | Scheduler entries, and one `doc_events` hook on Support Request. Deliberately none on Payment Request — see above |
 | `templates/emails/payment_receipt.html` | The email layout. No `frappe.*` calls: all formatting happens in Python, where it is tested and where a missing helper cannot fail inside a scheduled job |

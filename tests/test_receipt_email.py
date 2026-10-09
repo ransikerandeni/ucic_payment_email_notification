@@ -75,6 +75,15 @@ class TestLayout:
         assert "<img src=x" not in message
         assert "&lt;img src=x" in message
 
+    def test_receipt_shows_the_reference_id(self):
+        seed(with_slot=False)
+        STATE.fields["Payment Request"].add("custom_gateway_transaction_id")
+        STATE.records["Payment Request"][PR]["custom_gateway_transaction_id"] = "7902294473696640104010"
+        message = sent()["message"]
+
+        assert "Reference ID" in message
+        assert "7902294473696640104010" in message
+
     def test_details_show_times_without_seconds_even_from_a_timedelta(self):
         seed()
         STATE.records["Slot Allocations"]["row-abc"]["from_time"] = datetime.timedelta(hours=9, minutes=5)

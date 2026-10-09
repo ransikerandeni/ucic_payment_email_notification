@@ -1,0 +1,70 @@
+{#- Organising-team alert - same shell as payment_receipt.html.
+
+    Nested tables and inline styles on purpose, so it survives Gmail, Outlook
+    and a phone. Every value is formatted (and the quoted message escaped) in
+    staff_alerts.py before it arrives; no frappe.* calls here.
+-#}
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all">{{ preheader|e }}</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3f4f6"
+	style="width:100%;background:#f3f4f6;border-collapse:collapse">
+<tr>
+<td align="center" style="padding:28px 12px">
+
+	<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff"
+		style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;border-collapse:separate;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937">
+
+		<tr>
+			<td bgcolor="{{ brand_color }}" style="background:{{ brand_color }};padding:22px 28px;border-radius:14px 14px 0 0">
+				{%- if logo_url %}
+				<img src="{{ logo_url|e }}" alt="" height="36"
+					style="display:block;height:36px;width:auto;max-width:200px;border:0;outline:none;margin:0 0 12px">
+				{%- endif %}
+				<div style="font-size:12px;line-height:1.4;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:{{ brand_muted }}">{{ kicker|e }}</div>
+				<div style="font-size:19px;line-height:1.35;font-weight:700;color:{{ brand_text }};margin-top:4px">{{ title|e }}</div>
+			</td>
+		</tr>
+
+		{%- if intro %}
+		<tr>
+			<td style="padding:22px 28px 4px;font-size:14.5px;line-height:1.6;color:#374151">{{ intro|e }}</td>
+		</tr>
+		{%- endif %}
+
+		{%- if quote_html %}
+		<tr>
+			<td style="padding:16px 28px 4px">
+				<div style="border-left:3px solid {{ brand_color }};background:{{ brand_tint }};padding:14px 16px;border-radius:0 8px 8px 0;font-size:14.5px;line-height:1.6;color:#111827">{{ quote_html|safe }}</div>
+			</td>
+		</tr>
+		{%- endif %}
+
+		<tr>
+			<td style="padding:18px 28px 8px">
+				<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ brand_tint }}"
+					style="width:100%;background:{{ brand_tint }};border-radius:10px;border-collapse:separate">
+					{%- for label, value in details %}
+					<tr>
+						<td valign="top" style="padding:10px 12px 10px 16px;{% if not loop.first %}border-top:1px solid {{ brand_line }};{% endif %}font-size:13.5px;line-height:1.45;color:#6b7280;white-space:nowrap">{{ label|e }}</td>
+						<td valign="top" align="right" style="padding:10px 16px 10px 12px;{% if not loop.first %}border-top:1px solid {{ brand_line }};{% endif %}font-size:14px;line-height:1.45;font-weight:600;color:#111827;text-align:right;word-break:break-word">{{ value|e }}</td>
+					</tr>
+					{%- endfor %}
+				</table>
+			</td>
+		</tr>
+
+		{%- if link_url %}
+		<tr>
+			<td style="padding:14px 28px 26px">
+				<a href="{{ link_url|e }}" style="display:inline-block;background:{{ brand_color }};color:{{ brand_text }};font-size:14px;font-weight:600;text-decoration:none;padding:10px 18px;border-radius:8px">{{ link_label|e }}</a>
+			</td>
+		</tr>
+		{%- else %}
+		<tr><td style="padding:0 0 20px;font-size:0;line-height:0">&nbsp;</td></tr>
+		{%- endif %}
+
+	</table>
+
+</td>
+</tr>
+</table>

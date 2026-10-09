@@ -1,0 +1,75 @@
+{
+ "actions": [],
+ "creation": "2026-10-09 00:00:00.000000",
+ "description": "Who on the organising team is emailed about Help & Support requests and failed payments.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "support_section",
+  "support_email_1",
+  "column_break_support",
+  "support_email_2",
+  "payment_failure_section",
+  "payment_failure_email"
+ ],
+ "fields": [
+  {
+   "description": "Every request a participant sends from the app's Help & Support dialog is emailed to both addresses below. Leave both blank to send nothing.",
+   "fieldname": "support_section",
+   "fieldtype": "Section Break",
+   "label": "Help & Support"
+  },
+  {
+   "fieldname": "support_email_1",
+   "fieldtype": "Data",
+   "label": "Support Email 1",
+   "options": "Email"
+  },
+  {
+   "fieldname": "column_break_support",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "support_email_2",
+   "fieldtype": "Data",
+   "label": "Support Email 2",
+   "options": "Email"
+  },
+  {
+   "description": "Emailed once for every participant payment that fails (conference pass and slot payments), within a minute of the failure. Separate from the email the participant receives. Leave blank to send nothing.",
+   "fieldname": "payment_failure_section",
+   "fieldtype": "Section Break",
+   "label": "Payment Failures"
+  },
+  {
+   "fieldname": "payment_failure_email",
+   "fieldtype": "Data",
+   "label": "Payment Failure Email",
+   "options": "Email"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "UCIC Notifications",
+ "name": "UCIC Notification Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

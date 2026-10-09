@@ -48,6 +48,7 @@ RECEIPT_FIELD_CANDIDATES = ("receipt_sent_on", "custom_receipt_sent_on")
 SLOT_ROW_FIELD_CANDIDATES = ("slot_allocation_row", "custom_slot_allocation_row")
 FAILURE_FIELD_CANDIDATES = ("failure_notified_on", "custom_failure_notified_on")
 PACKAGE_FIELD_CANDIDATES = ("conference_package", "custom_conference_package")
+TRANSACTION_ID_FIELD_CANDIDATES = ("gateway_transaction_id", "custom_gateway_transaction_id")
 
 # Which conference days each pass package covers: Day 1 is the conference's
 # start date, Day 2 the day after - the same rule the Server Scripts use.
@@ -96,6 +97,10 @@ def slot_row_field():
 
 def package_field():
 	return _resolve_field("Payment Request", PACKAGE_FIELD_CANDIDATES)
+
+
+def transaction_id_field():
+	return _resolve_field("Payment Request", TRANSACTION_ID_FIELD_CANDIDATES)
 
 
 def pass_context(payment_request, conference):
@@ -196,6 +201,14 @@ def build_context(payment_request):
 
 	paid_on = (slot.get("paid_on") if slot else None) or frappe.utils.now()
 
+	# THE REFERENCE ID the gateway gave this payment (for People's Bank, the
+	# CyberSource Request ID). The Payment Request is the one place every kind
+	# of sale has it - a whole-session sale and a conference pass have no slot
+	# row - so it is read first, and the slot row is only the fallback for a
+	# payment settled before the field existed.
+	txn_field = transaction_id_field()
+	reference_id = frappe.db.get_value("Payment Request", payment_request, txn_field) if txn_field else None
+
 	passed = pass_context(payment_request, pr.reference_name) if is_pass else {}
 
 	return {
@@ -216,7 +229,7 @@ def build_context(payment_request):
 		"session_start": schedule.get("start_time"),
 		"session_end": schedule.get("end_time"),
 		"gateway": slot.get("payment_gateway") if slot else None,
-		"gateway_reference": slot.get("gateway_reference") if slot else None,
+		"gateway_reference": reference_id or (slot.get("gateway_reference") if slot else None),
 		"paid_on": paid_on,
 		"amount": pr.grand_total,
 		"currency": pr.currency,

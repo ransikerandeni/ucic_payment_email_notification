@@ -155,7 +155,10 @@ def render_failure(context):
 		header_title=tpl.header_title or context.get("conference") or "Payment unsuccessful",
 		logo_url=_absolute_url(tpl.logo),
 		details=[
-			("Reference" if label == "Receipt no." else label, value)
+			# "Reference" is already this email's name for the receipt number
+			# (the body tells them to quote it), so the gateway's id keeps its
+			# older label here rather than becoming a second "Reference".
+			("Reference" if label == "Receipt no." else "Transaction ref." if label == "Reference ID" else label, value)
 			for label, value in details_rows(context, when_label="Attempted on")
 		],
 		preheader="Your payment of %s was not successful" % (context.get("amount_display"),),
@@ -208,7 +211,7 @@ def details_rows(context, when_label="Paid on"):
 	if c.get("gateway"):
 		rows.append(("Paid via", c["gateway"]))
 	if c.get("gateway_reference"):
-		rows.append(("Transaction ref.", c["gateway_reference"]))
+		rows.append(("Reference ID", c["gateway_reference"]))
 
 	rows.append((when_label, c.get("paid_on_display")))
 

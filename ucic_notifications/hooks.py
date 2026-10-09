@@ -11,13 +11,23 @@ app_license = "MIT"
 app_logo_url = "/assets/ucic_notifications/images/logo.svg"
 
 # ---------------------------------------------------------------------------
-# NO doc_events, ON PURPOSE.
+# NO doc_events ON PAYMENT REQUEST, ON PURPOSE.
 #
 # A Payment Request reaches "Paid" through frappe.db.set_value / db_set in the
 # settlement Server Scripts - direct database writes that never run the document
 # lifecycle. A doc_events hook here would never fire, and neither would a Frappe
 # Notification. Hence the sweep below.
 # ---------------------------------------------------------------------------
+
+# The ONE doc_events hook, and it is not on Payment Request. A Support Request
+# is created with `insert()` by the save_support_request Server Script, which
+# does run the lifecycle - so after_insert fires. It only queues an email to the
+# team and never raises; see staff_alerts.on_support_request_insert.
+doc_events = {
+	"Support Request": {
+		"after_insert": "ucic_notifications.staff_alerts.on_support_request_insert",
+	}
+}
 
 after_install = "ucic_notifications.install.after_install"
 after_migrate = "ucic_notifications.install.after_migrate"
@@ -31,6 +41,8 @@ scheduler_events = {
 		# tries again on the next pass.
 		"* * * * *": [
 			"ucic_notifications.receipts.sweep",
+			# Failed payments -> the organising team's Payment Failure Email.
+			"ucic_notifications.staff_alerts.sweep",
 		]
 	}
 }
