@@ -239,3 +239,54 @@ def test_cancelled_at_gateway_alerts_the_team():
 
     (mail,) = STATE.mails
     assert mail["subject"].startswith("[Payment failed]")
+
+
+class TestInstantFailureFromApp:
+    """The app calls notify_payment_outcome the moment the payer cancels at the
+    gateway. Both emails must go then - not the team's a sweep later, or never
+    on a site whose scheduler is off."""
+
+    def _cancel(self):
+        configure()
+        seed_failed()
+        STATE.fields["Payment Request"].add("custom_payment_status")
+        STATE.records["Payment Request"][PR].update(status="Requested", custom_payment_status="Failed")
+        STATE.put("User", "login@example.com", email="login@example.com")
+
+    def test_participant_and_team_are_both_mailed(self):
+        self._cancel()
+
+        assert receipts.notify_outcome_for_user(PR, "login@example.com") is True
+
+        recipients = sorted(m["recipients"][0] for m in STATE.mails)
+        assert recipients == ["payments@ucsc.lk", "ranmal@example.com"]
+        assert STATE.records["Payment Request"][PR]["staff_failure_alert_on"] == STATE.now
+
+    def test_sweep_does_not_alert_the_team_again(self):
+        self._cancel()
+
+        receipts.notify_outcome_for_user(PR, "login@example.com")
+        staff_alerts.sweep()
+        receipts.sweep()
+
+        assert len(STATE.mails) == 2
+
+    def test_team_alert_error_never_costs_the_participant_their_email(self, monkeypatch):
+        self._cancel()
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("smtp down")
+
+        monkeypatch.setattr(staff_alerts, "send_failure_alert", boom)
+
+        assert receipts.notify_outcome_for_user(PR, "login@example.com") is True
+        assert [m["recipients"] for m in STATE.mails] == [["ranmal@example.com"]]
+        assert STATE.errors[0][0] == "Payment failure staff alert failed"
+
+    def test_team_is_told_even_when_participant_was_already_told(self):
+        self._cancel()
+        STATE.records["Payment Request"][PR]["failure_notified_on"] = "2026-10-09 10:00:00"
+
+        receipts.notify_outcome_for_user(PR, "login@example.com")
+
+        assert [m["recipients"] for m in STATE.mails] == [["payments@ucsc.lk"]]

@@ -571,7 +571,10 @@ def send_receipt_now(payment_request):
 		if result == "Paid":
 			return send_receipt(payment_request)
 		if result == "Failed":
-			return send_failure_notice(payment_request)
+			try:
+				return send_failure_notice(payment_request)
+			finally:
+				_alert_team_of_failure(payment_request)
 		return False
 	except Exception:
 		frappe.log_error(
@@ -579,6 +582,22 @@ def send_receipt_now(payment_request):
 			message="Payment Request %s\n\n%s" % (payment_request, frappe.get_traceback()),
 		)
 		return False
+
+
+def _alert_team_of_failure(payment_request):
+	"""The organising team's Payment Failure Email, sent alongside the participant's
+	failure notice instead of waiting for the staff sweep - which never fires on a
+	site whose scheduler is off. Guarded by its own field, so the sweep will not
+	send it again; and never raises, whatever happened to the participant's mail."""
+	from ucic_notifications import staff_alerts
+
+	try:
+		staff_alerts.send_failure_alert(payment_request)
+	except Exception:
+		frappe.log_error(
+			title="Payment failure staff alert failed",
+			message="Payment Request %s\n\n%s" % (payment_request, frappe.get_traceback()),
+		)
 
 
 def notify_outcome_for_user(payment_request, user):

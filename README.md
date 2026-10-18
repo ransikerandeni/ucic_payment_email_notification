@@ -390,6 +390,13 @@ that had already failed, so the team is only alerted about new failures. Note
 that failures which happen *after* the update but *before* an address is set
 are still picked up (up to 7 days old) once it is set.
 
+From 0.5.1 the team alert is also sent **at the same moment as the
+participant's** failure email: when the app reports a cancelled or declined
+checkout (`api.notify_payment_outcome`), both go out together. The sweep stays
+as the backstop and will not send it twice. Before 0.5.1 the team relied on the
+sweep alone, so on a site whose scheduler was off the participant was emailed
+but the Payment Failure Email never was.
+
 ---
 
 ## Editing the email
