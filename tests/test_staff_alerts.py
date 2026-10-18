@@ -325,3 +325,18 @@ def test_a_second_failed_attempt_on_a_reused_request_mails_both_again():
 
     recipients = sorted(m["recipients"][0] for m in STATE.mails)
     assert recipients == ["payments@ucsc.lk", "payments@ucsc.lk", "ranmal@example.com", "ranmal@example.com"]
+
+
+def test_both_failure_emails_draw_the_cross_as_an_absolute_image():
+    """A text cross is enlarged by the Gmail phone app and spills out of its
+    circle, so both emails use the app's PNG - by absolute URL, as a mail client
+    has no site to resolve a relative one against."""
+    configure()
+    seed_failed()
+
+    receipts.send_failure_notice(PR)
+    staff_alerts.send_failure_alert(PR)
+
+    for mail in STATE.mails:
+        assert 'src="http' in mail["message"]
+        assert "/assets/ucic_notifications/images/payment-failed-cross.png" in mail["message"]

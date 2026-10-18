@@ -303,6 +303,7 @@ def render(kicker, title, intro, details, quote=None, link_label=None, link_url=
 			"link_label": link_label,
 			"link_url": link_url,
 			"danger": danger,
+			"cross_icon_url": receipt_email._absolute_url(receipt_email.CROSS_ICON),
 			"preheader": ("%s: %s" % (kicker, title)) if danger else title,
 			"logo_url": receipt_email._absolute_url(tpl.logo),
 			"brand_color": brand,

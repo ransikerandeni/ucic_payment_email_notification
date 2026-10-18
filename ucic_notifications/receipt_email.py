@@ -24,6 +24,9 @@ import frappe
 TEMPLATE_DOCTYPE = "Receipt Email Template"
 LAYOUT = "ucic_notifications/templates/emails/payment_receipt.html"
 FAILURE_LAYOUT = "ucic_notifications/templates/emails/payment_failed.html"
+# A white cross on transparent, laid over a red circle in both failure emails.
+# Served from this app's public/ folder, so `bench build` must have run.
+CROSS_ICON = "/assets/ucic_notifications/images/payment-failed-cross.png"
 
 # Plain Jinja with no quoted strings: the Text Editor may store quotes as
 # entities, which would break a `{{ x or "y" }}` an organiser copied from here.
@@ -205,6 +208,7 @@ def render_failure(context):
 		context,
 		body_html=body,
 		reply_email=reply_email,
+		cross_icon_url=_absolute_url(CROSS_ICON),
 		header_title=tpl.header_title or context.get("conference") or "Payment could not be completed",
 		logo_url=_absolute_url(tpl.logo),
 		details=[

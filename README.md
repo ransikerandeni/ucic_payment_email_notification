@@ -420,6 +420,13 @@ by its text, and the Gmail app enlarges text, which stretched it into an oval.
 It is now a fixed-size box. Templates only: update the app, clear the cache
 and restart; no migrate or Server Script change.
 
+**0.5.5** draws the cross itself as an image
+(`public/images/payment-failed-cross.png`) on the red circle. As a character,
+the Gmail phone app enlarged it until it spilled out of the circle. **Run
+`bench build --app ucic_notifications`** after updating so the image is served;
+without it, the emails show a plain red circle. No migrate or Server Script
+change.
+
 ---
 
 ## Editing the email
