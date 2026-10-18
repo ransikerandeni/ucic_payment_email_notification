@@ -11,7 +11,9 @@
   "column_break_support",
   "support_email_2",
   "payment_failure_section",
-  "payment_failure_email"
+  "payment_failure_email",
+  "column_break_payment_failure",
+  "payment_failure_reply_email"
  ],
  "fields": [
   {
@@ -37,7 +39,7 @@
    "options": "Email"
   },
   {
-   "description": "Emailed once for every participant payment that fails (conference pass and slot payments), within a minute of the failure. Separate from the email the participant receives. Leave blank to send nothing.",
+   "description": "Emailed once for every participant payment that fails (conference pass and slot payments). Separate from the email the participant receives.",
    "fieldname": "payment_failure_section",
    "fieldtype": "Section Break",
    "label": "Payment Failures"
@@ -46,12 +48,24 @@
    "fieldname": "payment_failure_email",
    "fieldtype": "Data",
    "label": "Payment Failure Email",
+   "options": "Email",
+   "description": "Gets an alert for every failed payment. Leave blank to send none."
+  },
+  {
+   "fieldname": "column_break_payment_failure",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Where participants are told to write about a failed payment. Shown in their \"Payment failed\" email, and replying to that email goes here. Leave blank to point them to the organising team without an address.",
+   "fieldname": "payment_failure_reply_email",
+   "fieldtype": "Data",
+   "label": "Payment Failure Reply Email",
    "options": "Email"
   }
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-10-09 00:00:00.000000",
+ "modified": "2026-10-18 23:55:00.000000",
  "modified_by": "Administrator",
  "module": "UCIC Notifications",
  "name": "UCIC Notification Settings",

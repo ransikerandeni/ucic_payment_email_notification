@@ -157,3 +157,38 @@ def test_an_open_payment_gets_no_email():
     assert receipts.notify_outcome_for_user(PR, "login@example.com") is False
     receipts.sweep()
     assert STATE.mails == []
+
+
+class TestFailureReplyAddress:
+    """UCIC Notification Settings > Payment Failure Reply Email: where a
+    participant whose payment failed is told to write, and where replies go."""
+
+    def test_address_is_shown_and_used_as_reply_to(self):
+        seed_failed()
+        STATE.singles["UCIC Notification Settings"] = {"payment_failure_reply_email": " payments-help@ucsc.lk "}
+
+        receipts.send_failure_notice(PR)
+
+        (mail,) = STATE.mails
+        assert mail["reply_to"] == "payments-help@ucsc.lk"
+        assert 'mailto:payments-help@ucsc.lk' in mail["message"]
+        assert "Reply to this email" not in mail["message"]
+
+    def test_blank_points_to_the_team_without_claiming_a_reply_works(self):
+        seed_failed()
+
+        receipts.send_failure_notice(PR)
+
+        (mail,) = STATE.mails
+        assert mail["reply_to"] is None
+        assert "Contact the UCIC organising team" in mail["message"]
+        assert "Reply to this email" not in mail["message"]
+        assert "mailto:" not in mail["message"]
+
+    def test_address_is_escaped(self):
+        seed_failed()
+        STATE.singles["UCIC Notification Settings"] = {"payment_failure_reply_email": 'x"><b>@ucsc.lk'}
+
+        receipts.send_failure_notice(PR)
+
+        assert "<b>" not in STATE.mails[0]["message"]

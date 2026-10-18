@@ -147,8 +147,20 @@ FAILURE_BODY = (
 	"<p>Unfortunately your payment{for_what} <strong>could not be completed</strong>, "
 	"so {consequence}.</p>"
 	"<p>If an amount has been deducted from your account anyway, or you need any "
-	"help, the organising team will sort it out.</p>"
+	"help, please {contact} quoting the reference below.</p>"
 )
+
+SETTINGS_DOCTYPE = "UCIC Notification Settings"
+
+
+def failure_reply_address():
+	"""UCIC Notification Settings > Payment Failure Reply Email, or None.
+
+	Where a participant whose payment failed is told to write - shown in the
+	email and used as its Reply-To. Not the address the email is SENT from:
+	that is the outgoing Email Account, which nobody may be reading."""
+	value = ((frappe.db.get_singles_dict(SETTINGS_DOCTYPE) or {}).get("payment_failure_reply_email") or "").strip()
+	return value or None
 
 
 # The receipt's labels, reworded for a payment that did not happen. "Reference"
@@ -175,6 +187,7 @@ def render_failure(context):
 
 	title = context.get("purchase_title") or context.get("session_title")
 	name = context.get("participant")
+	reply_email = failure_reply_address()
 	conference = context.get("conference")
 
 	subject = FAILURE_SUBJECT.format(
@@ -185,11 +198,13 @@ def render_failure(context):
 		greeting=("Dear %s," % html.escape(name)) if name else "Hello,",
 		for_what=(" for <strong>%s</strong>" % html.escape(title)) if title else "",
 		consequence=html.escape(context.get("failure_note") or "your booking has not been confirmed"),
+		contact=_contact_html(reply_email),
 	)
 
 	layout = dict(
 		context,
 		body_html=body,
+		reply_email=reply_email,
 		header_title=tpl.header_title or context.get("conference") or "Payment could not be completed",
 		logo_url=_absolute_url(tpl.logo),
 		details=[
@@ -208,6 +223,14 @@ def render_failure(context):
 	)
 
 	return subject, frappe.render_template(FAILURE_LAYOUT, layout)
+
+
+def _contact_html(address):
+	"""How the failure email tells the participant to get in touch."""
+	if not address:
+		return "contact the UCIC organising team"
+	safe = html.escape(address)
+	return 'email <a href="mailto:%s">%s</a>' % (safe, safe)
 
 
 def _render_part(field, source, context):

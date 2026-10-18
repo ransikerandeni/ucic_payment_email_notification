@@ -82,7 +82,11 @@
 					<tr>
 						<td style="padding:4px 18px 14px;font-size:14px;line-height:1.6;color:#78350f">
 							<div style="margin:0 0 6px">&#8635;&nbsp; <strong>Try again</strong> from the UCIC app.</div>
-							<div style="margin:0">&#9993;&nbsp; <strong>Money deducted?</strong> Reply to this email quoting <span style="white-space:nowrap">Ref {{ receipt_no|e }}</span>.</div>
+							{%- if reply_email %}
+							<div style="margin:0">&#9993;&nbsp; <strong>Money deducted?</strong> Email <a href="mailto:{{ reply_email|e }}" style="color:#92400e;font-weight:600;text-decoration:underline;word-break:break-all">{{ reply_email|e }}</a> quoting <span style="white-space:nowrap">Ref {{ receipt_no|e }}</span>.</div>
+							{%- else %}
+							<div style="margin:0">&#9993;&nbsp; <strong>Money deducted?</strong> Contact the UCIC organising team quoting <span style="white-space:nowrap">Ref {{ receipt_no|e }}</span>.</div>
+							{%- endif %}
 						</td>
 					</tr>
 				</table>

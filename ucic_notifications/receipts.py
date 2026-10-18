@@ -543,6 +543,9 @@ def send_failure_notice(payment_request, force=False):
 		recipients=[context["recipient"]],
 		subject=subject,
 		message=message,
+		# Replies go to the team's Payment Failure Reply Email, not the outgoing
+		# account the mail was sent from. None leaves Frappe's default.
+		reply_to=receipt_email.failure_reply_address(),
 		reference_doctype="Payment Request",
 		reference_name=context["receipt_no"],
 		now=True,

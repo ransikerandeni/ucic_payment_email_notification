@@ -368,7 +368,8 @@ the saved addresses.
 | Field | Gets |
 |---|---|
 | Support Email 1, Support Email 2 | Every **Help & Support** request from the app, the same email to both. Reply goes straight to the participant (`reply_to` is their address) |
-| Payment Failure Email | One alert per **Failed** payment - conference pass and slot payments alike - within a minute of the failure |
+| Payment Failure Email | One alert per **Failed** payment - conference pass and slot payments alike - sent together with the participant's email |
+| Payment Failure Reply Email (0.5.3+) | Not emailed. It is the address the participant's "Payment failed" email tells them to write to, and its Reply-To. Blank: the email says "contact the UCIC organising team" and gives no address |
 
 **Help & Support** uses a `doc_events` `after_insert` hook on **Support
 Request**. That works here, unlike for payments, because the
@@ -407,6 +408,12 @@ it starts a new attempt on a reused request - **paste the updated
 updating the app alone does not fix it. 0.5.2 also gives both failure emails a
 red "Payment failed" design (cross icon, "Amount not paid", Status: FAILED) so
 neither can be mistaken for a receipt.
+
+**0.5.3** adds **Payment Failure Reply Email** to UCIC Notification Settings.
+The participant's failure email used to say "reply to this email", which went
+to the outgoing mail account. It now names this address instead, and uses it as
+the Reply-To. Run `bench --site <site> migrate` so the new field appears, then
+fill it in.
 
 ---
 
