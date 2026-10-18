@@ -415,6 +415,11 @@ to the outgoing mail account. It now names this address instead, and uses it as
 the Reply-To. Run `bench --site <site> migrate` so the new field appears, then
 fill it in.
 
+**0.5.4** keeps the red cross icon round on phones. It was a table cell sized
+by its text, and the Gmail app enlarges text, which stretched it into an oval.
+It is now a fixed-size box. Templates only: update the app, clear the cache
+and restart; no migrate or Server Script change.
+
 ---
 
 ## Editing the email

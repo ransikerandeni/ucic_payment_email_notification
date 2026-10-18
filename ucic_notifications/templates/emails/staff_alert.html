@@ -45,13 +45,11 @@
 			<td bgcolor="#fef2f2" style="background:#fef2f2;padding:20px 28px;border-bottom:1px solid #fecaca">
 				<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
 					<tr>
-						<td width="52" valign="middle" style="width:52px;padding-right:14px">
-							<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate">
-								<tr>
-									<td width="44" height="44" align="center" valign="middle" bgcolor="#dc2626"
-										style="width:44px;height:44px;background:#dc2626;border-radius:50%;border:4px solid #fee2e2;color:#ffffff;font-size:22px;line-height:44px;font-weight:700;text-align:center">&#10005;</td>
-								</tr>
-							</table>
+						{#- Fixed-size boxes, not a sized cell - see payment_failed.html. -#}
+						<td width="66" valign="middle" style="width:66px;min-width:66px;padding-right:14px">
+							<div style="width:44px;height:44px;min-width:44px;max-width:44px;padding:4px;background:#fee2e2;border-radius:26px">
+								<div style="width:44px;height:44px;min-width:44px;max-width:44px;max-height:44px;overflow:hidden;background:#dc2626;border-radius:22px;color:#ffffff;font-size:22px;line-height:44px;font-weight:700;text-align:center;mso-line-height-rule:exactly">&#10005;</div>
+							</div>
 						</td>
 						<td valign="middle">
 							<div style="font-size:12px;line-height:1.4;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#b91c1c">{{ kicker|e }}</div>
