@@ -211,8 +211,8 @@ def send_failure_alert(payment_request, force=False):
 		("Email", ctx.get("recipient") or pr.email_to),
 		("For", ctx.get("session_title")),
 		("Conference", ctx.get("conference")),
-		("Amount", amount_display),
-		("Paid via", ctx.get("gateway")),
+		("Amount not paid", amount_display),
+		("Payment method", ctx.get("gateway")),
 		("Reference ID", ctx.get("gateway_reference")),
 		("Failed on", frappe.utils.format_datetime(frappe.utils.now(), "d MMMM yyyy, HH:mm")),
 	]
@@ -225,6 +225,7 @@ def send_failure_alert(payment_request, force=False):
 		details=details,
 		link_label="Open Payment Request",
 		link_url=frappe.utils.get_url_to_form("Payment Request", payment_request),
+		danger=True,
 	)
 
 	frappe.sendmail(
@@ -280,9 +281,10 @@ def sweep(max_age_days=receipts.DEFAULT_MAX_AGE_DAYS, limit=receipts.DEFAULT_LIM
 # ---------------------------------------------------------------------------
 
 
-def render(kicker, title, intro, details, quote=None, link_label=None, link_url=None):
+def render(kicker, title, intro, details, quote=None, link_label=None, link_url=None, danger=False):
 	"""The staff email's HTML. Branding comes from the Receipt Email Template so
-	every email from the system looks like it is from the same place."""
+	every email from the system looks like it is from the same place. `danger`
+	marks something that went wrong - a failed payment - in red throughout."""
 	tpl = receipt_email.get_template()
 	brand = tpl.brand_color
 	on_brand = receipt_email._text_on(brand)
@@ -300,7 +302,8 @@ def render(kicker, title, intro, details, quote=None, link_label=None, link_url=
 			"quote_html": quote_html,
 			"link_label": link_label,
 			"link_url": link_url,
-			"preheader": title,
+			"danger": danger,
+			"preheader": ("%s: %s" % (kicker, title)) if danger else title,
 			"logo_url": receipt_email._absolute_url(tpl.logo),
 			"brand_color": brand,
 			"brand_text": on_brand,

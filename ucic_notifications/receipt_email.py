@@ -146,10 +146,20 @@ FAILURE_BODY = (
 	"<p>{greeting}</p>"
 	"<p>Unfortunately your payment{for_what} <strong>could not be completed</strong>, "
 	"so {consequence}.</p>"
-	"<p>You can go back to the UCIC app and try the payment again. If the amount "
-	"has been deducted from your account, or you need any help, simply reply to "
-	"this email with the reference below and the organising team will sort it out.</p>"
+	"<p>If an amount has been deducted from your account anyway, or you need any "
+	"help, the organising team will sort it out.</p>"
 )
+
+
+# The receipt's labels, reworded for a payment that did not happen. "Reference"
+# is this email's name for the receipt number (the body tells them to quote it),
+# so the gateway's id keeps its older label rather than becoming a second one;
+# and nothing was "paid via" anything.
+FAILURE_LABELS = {
+	"Receipt no.": "Reference",
+	"Reference ID": "Transaction ref.",
+	"Paid via": "Payment method",
+}
 
 
 def render_failure(context):
@@ -186,7 +196,7 @@ def render_failure(context):
 			# "Reference" is already this email's name for the receipt number
 			# (the body tells them to quote it), so the gateway's id keeps its
 			# older label here rather than becoming a second "Reference".
-			("Reference" if label == "Receipt no." else "Transaction ref." if label == "Reference ID" else label, value)
+			(FAILURE_LABELS.get(label, label), value)
 			for label, value in details_rows(context, when_label="Attempted on")
 		],
 		preheader="Your payment of %s was not successful" % (context.get("amount_display"),),

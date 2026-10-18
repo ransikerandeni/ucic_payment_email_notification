@@ -137,8 +137,9 @@ def send_test_staff_alerts():
 					("Payment Request", "ACC-PRQ-2026-00001"),
 					("Participant", "Sample Participant"),
 					("For", "Conference Pass - Both Days"),
-					("Amount", "LKR 2,500.00"),
+					("Amount not paid", "LKR 2,500.00"),
 				],
+				danger=True,
 			),
 			now=True,
 		)

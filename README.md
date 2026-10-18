@@ -397,6 +397,17 @@ as the backstop and will not send it twice. Before 0.5.1 the team relied on the
 sweep alone, so on a site whose scheduler was off the participant was emailed
 but the Payment Failure Email never was.
 
+**0.5.2** fixes a participant who fails or cancels a *second* time on the same
+Payment Request getting no email (the team still did). A retry reuses the
+request, and its `failure_notified_on` / `staff_failure_alert_on` stamps from
+the first failure were never cleared, so the next failure counted as already
+told. The **create_gateway_payment** Server Script now clears both stamps when
+it starts a new attempt on a reused request - **paste the updated
+`payment/gateway/create_gateway_payment.py` into that Server Script in Desk**;
+updating the app alone does not fix it. 0.5.2 also gives both failure emails a
+red "Payment failed" design (cross icon, "Amount not paid", Status: FAILED) so
+neither can be mistaken for a receipt.
+
 ---
 
 ## Editing the email

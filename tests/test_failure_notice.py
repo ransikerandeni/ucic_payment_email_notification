@@ -20,8 +20,10 @@ def test_failed_payment_gets_a_failure_email():
     assert mail["recipients"] == ["ranmal@example.com"]
     assert mail["subject"].startswith("Payment could not be completed")
     assert "could not be completed" in mail["message"]
-    assert "PAYMENT NOT COMPLETED" in mail["message"]
-    assert "PAID" not in mail["message"].replace("PAYMENT NOT COMPLETED", "")
+    assert "Payment failed" in mail["message"]
+    assert "Amount not paid" in mail["message"]
+    assert "PAID" not in mail["message"]
+    assert "Paid via" not in mail["message"]
 
 
 def test_failure_email_is_sent_once():

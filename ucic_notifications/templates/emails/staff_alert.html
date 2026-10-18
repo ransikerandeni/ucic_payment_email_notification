@@ -3,7 +3,15 @@
     Nested tables and inline styles on purpose, so it survives Gmail, Outlook
     and a phone. Every value is formatted (and the quoted message escaped) in
     staff_alerts.py before it arrives; no frappe.* calls here.
+
+    `danger` (a failed payment) swaps the brand accents below the header for
+    red and adds a status panel with a cross, so the alert can never be read as
+    a confirmation. Help & Support keeps the brand look.
 -#}
+{%- set accent = "#dc2626" if danger else brand_color %}
+{%- set accent_text = "#ffffff" if danger else brand_text %}
+{%- set panel = "#f9fafb" if danger else brand_tint %}
+{%- set rule = "#e5e7eb" if danger else brand_line %}
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all">{{ preheader|e }}</div>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3f4f6"
@@ -20,10 +28,40 @@
 				<img src="{{ logo_url|e }}" alt="" height="36"
 					style="display:block;height:36px;width:auto;max-width:200px;border:0;outline:none;margin:0 0 12px">
 				{%- endif %}
+				{%- if not danger %}
 				<div style="font-size:12px;line-height:1.4;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:{{ brand_muted }}">{{ kicker|e }}</div>
+				{%- endif %}
+				{%- if danger %}
+				<div style="font-size:12px;line-height:1.4;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:{{ brand_text }}">UCIC organising team alert</div>
+				{%- else %}
 				<div style="font-size:19px;line-height:1.35;font-weight:700;color:{{ brand_text }};margin-top:4px">{{ title|e }}</div>
+				{%- endif %}
 			</td>
 		</tr>
+
+		{%- if danger %}
+		<tr><td bgcolor="#dc2626" style="background:#dc2626;height:5px;font-size:0;line-height:0">&nbsp;</td></tr>
+		<tr>
+			<td bgcolor="#fef2f2" style="background:#fef2f2;padding:20px 28px;border-bottom:1px solid #fecaca">
+				<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+					<tr>
+						<td width="52" valign="middle" style="width:52px;padding-right:14px">
+							<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate">
+								<tr>
+									<td width="44" height="44" align="center" valign="middle" bgcolor="#dc2626"
+										style="width:44px;height:44px;background:#dc2626;border-radius:50%;border:4px solid #fee2e2;color:#ffffff;font-size:22px;line-height:44px;font-weight:700;text-align:center">&#10005;</td>
+								</tr>
+							</table>
+						</td>
+						<td valign="middle">
+							<div style="font-size:12px;line-height:1.4;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#b91c1c">{{ kicker|e }}</div>
+							<div style="font-size:18px;line-height:1.35;font-weight:700;color:#7f1d1d;margin-top:3px">{{ title|e }}</div>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		{%- endif %}
 
 		{%- if intro %}
 		<tr>
@@ -34,21 +72,29 @@
 		{%- if quote_html %}
 		<tr>
 			<td style="padding:16px 28px 4px">
-				<div style="border-left:3px solid {{ brand_color }};background:{{ brand_tint }};padding:14px 16px;border-radius:0 8px 8px 0;font-size:14.5px;line-height:1.6;color:#111827">{{ quote_html|safe }}</div>
+				<div style="border-left:3px solid {{ accent }};background:{{ panel }};padding:14px 16px;border-radius:0 8px 8px 0;font-size:14.5px;line-height:1.6;color:#111827">{{ quote_html|safe }}</div>
 			</td>
 		</tr>
 		{%- endif %}
 
 		<tr>
 			<td style="padding:18px 28px 8px">
-				<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ brand_tint }}"
-					style="width:100%;background:{{ brand_tint }};border-radius:10px;border-collapse:separate">
+				<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ panel }}"
+					style="width:100%;background:{{ panel }};border-radius:10px;border-collapse:separate{% if danger %};border:1px solid #e5e7eb;border-top:3px solid #dc2626{% endif %}">
 					{%- for label, value in details %}
 					<tr>
-						<td valign="top" style="padding:10px 12px 10px 16px;{% if not loop.first %}border-top:1px solid {{ brand_line }};{% endif %}font-size:13.5px;line-height:1.45;color:#6b7280;white-space:nowrap">{{ label|e }}</td>
-						<td valign="top" align="right" style="padding:10px 16px 10px 12px;{% if not loop.first %}border-top:1px solid {{ brand_line }};{% endif %}font-size:14px;line-height:1.45;font-weight:600;color:#111827;text-align:right;word-break:break-word">{{ value|e }}</td>
+						<td valign="top" style="padding:10px 12px 10px 16px;{% if not loop.first %}border-top:1px solid {{ rule }};{% endif %}font-size:13.5px;line-height:1.45;color:#6b7280;white-space:nowrap">{{ label|e }}</td>
+						<td valign="top" align="right" style="padding:10px 16px 10px 12px;{% if not loop.first %}border-top:1px solid {{ rule }};{% endif %}font-size:14px;line-height:1.45;font-weight:600;color:#111827;text-align:right;word-break:break-word">{{ value|e }}</td>
 					</tr>
 					{%- endfor %}
+					{%- if danger %}
+					<tr>
+						<td style="padding:10px 12px 10px 16px;border-top:1px solid {{ rule }};font-size:13.5px;line-height:1.45;color:#6b7280">Status</td>
+						<td align="right" style="padding:10px 16px 10px 12px;border-top:1px solid {{ rule }};text-align:right">
+							<span style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:12px;line-height:1;font-weight:700;letter-spacing:.04em;padding:5px 10px;border-radius:999px">&#10005;&nbsp;FAILED</span>
+						</td>
+					</tr>
+					{%- endif %}
 				</table>
 			</td>
 		</tr>
@@ -56,7 +102,7 @@
 		{%- if link_url %}
 		<tr>
 			<td style="padding:14px 28px 26px">
-				<a href="{{ link_url|e }}" style="display:inline-block;background:{{ brand_color }};color:{{ brand_text }};font-size:14px;font-weight:600;text-decoration:none;padding:10px 18px;border-radius:8px">{{ link_label|e }}</a>
+				<a href="{{ link_url|e }}" style="display:inline-block;background:{{ accent }};color:{{ accent_text }};font-size:14px;font-weight:600;text-decoration:none;padding:10px 18px;border-radius:8px">{{ link_label|e }}</a>
 			</td>
 		</tr>
 		{%- else %}

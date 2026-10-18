@@ -290,3 +290,38 @@ class TestInstantFailureFromApp:
         receipts.notify_outcome_for_user(PR, "login@example.com")
 
         assert [m["recipients"] for m in STATE.mails] == [["payments@ucsc.lk"]]
+
+
+def test_failure_alert_reads_as_a_failure_and_support_does_not():
+    configure()
+    seed_failed()
+    staff_alerts.send_failure_alert(PR)
+    failure = STATE.mails[0]["message"]
+
+    assert "&#10005;&nbsp;FAILED" in failure
+    assert "#dc2626" in failure
+    assert "Amount not paid" in failure
+    assert "Paid via" not in failure
+
+    STATE.mails.clear()
+    seed_support_request()
+    staff_alerts.on_support_request_insert(_Doc())
+    support = STATE.mails[0]["message"]
+
+    assert "FAILED" not in support
+    assert "#dc2626" not in support
+
+
+def test_a_second_failed_attempt_on_a_reused_request_mails_both_again():
+    """create_gateway_payment clears both stamps when it reuses a request for a
+    new attempt; the next failure must then reach the participant AND the team."""
+    configure()
+    seed_failed()
+    STATE.put("User", "login@example.com", email="login@example.com")
+
+    receipts.notify_outcome_for_user(PR, "login@example.com")
+    STATE.records["Payment Request"][PR].update(failure_notified_on=None, staff_failure_alert_on=None)
+    receipts.notify_outcome_for_user(PR, "login@example.com")
+
+    recipients = sorted(m["recipients"][0] for m in STATE.mails)
+    assert recipients == ["payments@ucsc.lk", "payments@ucsc.lk", "ranmal@example.com", "ranmal@example.com"]
