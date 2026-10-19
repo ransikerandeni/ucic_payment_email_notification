@@ -13,7 +13,7 @@ Two of them, both addressed from "UCIC Notification Settings" in Desk:
   would lose the email silently while the request itself saved fine.
 
 - PAYMENT FAILURES. Every Failed Payment Request is mailed once to the Payment
-  Failure Email. A payment reaches Failed through `frappe.db.set_value` in the
+  Failure Email and Support Email 1 (one email, both addresses). A payment reaches Failed through `frappe.db.set_value` in the
   gateway return script, so - like the receipt - this is found by a sweep, and
   guarded by its own `staff_failure_alert_on` field. It is deliberately NOT tied
   to the participant's `failure_notified_on`: a payment with no participant
@@ -63,6 +63,14 @@ def support_recipients():
 
 def failure_recipients():
 	return _addresses(_settings().get("payment_failure_email"))
+
+
+def failure_alert_recipients():
+	"""Who the "payment failed" alert goes to: the Payment Failure Email and
+	Support Email 1, de-duplicated. Only this alert - other mail that uses
+	failure_recipients() is not copied to Support."""
+	s = _settings()
+	return _addresses(s.get("payment_failure_email"), s.get("support_email_1"))
 
 
 def staff_failure_field():
@@ -179,7 +187,7 @@ def send_support_request_email(support_request):
 
 def send_failure_alert(payment_request, force=False):
 	"""Tell the organising team one payment failed. True when a mail was sent."""
-	recipients = failure_recipients()
+	recipients = failure_alert_recipients()
 	field = staff_failure_field()
 
 	if not recipients or not field:
@@ -250,13 +258,14 @@ def unalerted_failures(max_age_days=receipts.DEFAULT_MAX_AGE_DAYS, limit=receipt
 def sweep(max_age_days=receipts.DEFAULT_MAX_AGE_DAYS, limit=receipts.DEFAULT_LIMIT):
 	"""Scheduled entry point. Never raises; one bad row must not stop the rest.
 
-	With no Payment Failure Email set there is nobody to tell, so it does not
-	even query - and does not stamp, so nothing is marked "told" that was not.
+	With neither Payment Failure Email nor Support Email 1 set there is nobody
+	to tell, so it does not even query - and does not stamp, so nothing is
+	marked "told" that was not.
 	"""
 	sent = 0
 	failed = 0
 
-	if not failure_recipients():
+	if not failure_alert_recipients():
 		return {"sent": 0, "failed": 0}
 
 	for row in unalerted_failures(max_age_days=max_age_days, limit=limit):

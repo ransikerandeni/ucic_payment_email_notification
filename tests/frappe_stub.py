@@ -200,6 +200,8 @@ def build_module():
 		after_commit=_AfterCommit(),
 	)
 	frappe.get_all = _get_all
+	# Whitelisted endpoints are plain functions under test.
+	frappe.whitelist = lambda *a, **k: (lambda fn: fn)
 	frappe.sendmail = _sendmail
 	frappe.enqueue = _enqueue
 	frappe.log_error = _log_error

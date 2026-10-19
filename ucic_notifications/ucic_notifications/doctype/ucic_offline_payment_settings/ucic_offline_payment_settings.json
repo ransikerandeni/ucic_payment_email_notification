@@ -1,0 +1,199 @@
+{
+ "actions": [],
+ "creation": "2026-10-19 00:00:00.000000",
+ "description": "Bank details shown to participants who pay by Bank Transfer or Wire Transfer from the app's Other Payment Options page.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "issingle": 1,
+ "fields": [
+  {
+   "fieldname": "bank_transfer_section",
+   "fieldtype": "Section Break",
+   "label": "Bank Transfer",
+   "description": "For participants paying from a Sri Lankan bank account. Only filled-in fields are shown in the app."
+  },
+  {
+   "fieldname": "enable_bank_transfer",
+   "fieldtype": "Check",
+   "label": "Enable Bank Transfer",
+   "default": "0"
+  },
+  {
+   "fieldname": "bt_account_name",
+   "fieldtype": "Data",
+   "label": "Account Name"
+  },
+  {
+   "fieldname": "bt_account_number",
+   "fieldtype": "Data",
+   "label": "Account Number"
+  },
+  {
+   "fieldname": "bt_bank_name",
+   "fieldtype": "Data",
+   "label": "Bank"
+  },
+  {
+   "fieldname": "column_break_bt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bt_branch",
+   "fieldtype": "Data",
+   "label": "Branch"
+  },
+  {
+   "fieldname": "bt_branch_code",
+   "fieldtype": "Data",
+   "label": "Branch Code"
+  },
+  {
+   "fieldname": "bt_swift_code",
+   "fieldtype": "Data",
+   "label": "SWIFT / BIC"
+  },
+  {
+   "fieldname": "bt_currency",
+   "fieldtype": "Data",
+   "label": "Account Currency"
+  },
+  {
+   "fieldname": "bt_instructions",
+   "fieldtype": "Small Text",
+   "label": "Bank Transfer Instructions",
+   "description": "Shown under the bank details, e.g. who pays the bank charges."
+  },
+  {
+   "fieldname": "wire_transfer_section",
+   "fieldtype": "Section Break",
+   "label": "Wire Transfer",
+   "description": "For participants paying by international (SWIFT) transfer. Only filled-in fields are shown in the app."
+  },
+  {
+   "fieldname": "enable_wire_transfer",
+   "fieldtype": "Check",
+   "label": "Enable Wire Transfer",
+   "default": "0"
+  },
+  {
+   "fieldname": "wt_beneficiary_name",
+   "fieldtype": "Data",
+   "label": "Beneficiary Name"
+  },
+  {
+   "fieldname": "wt_beneficiary_address",
+   "fieldtype": "Small Text",
+   "label": "Beneficiary Address"
+  },
+  {
+   "fieldname": "wt_account_number",
+   "fieldtype": "Data",
+   "label": "Account Number"
+  },
+  {
+   "fieldname": "wt_iban",
+   "fieldtype": "Data",
+   "label": "IBAN"
+  },
+  {
+   "fieldname": "wt_currency",
+   "fieldtype": "Data",
+   "label": "Account Currency"
+  },
+  {
+   "fieldname": "column_break_wt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "wt_bank_name",
+   "fieldtype": "Data",
+   "label": "Beneficiary Bank"
+  },
+  {
+   "fieldname": "wt_bank_address",
+   "fieldtype": "Small Text",
+   "label": "Bank Address"
+  },
+  {
+   "fieldname": "wt_swift_code",
+   "fieldtype": "Data",
+   "label": "SWIFT / BIC"
+  },
+  {
+   "fieldname": "wt_intermediary_bank",
+   "fieldtype": "Data",
+   "label": "Intermediary Bank"
+  },
+  {
+   "fieldname": "wt_intermediary_swift",
+   "fieldtype": "Data",
+   "label": "Intermediary SWIFT / BIC"
+  },
+  {
+   "fieldname": "wt_instructions",
+   "fieldtype": "Small Text",
+   "label": "Wire Transfer Instructions",
+   "description": "Shown under the bank details, e.g. that the sender pays all charges (OUR)."
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "UCIC Notifications",
+ "name": "UCIC Offline Payment Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "field_order": [
+  "bank_transfer_section",
+  "enable_bank_transfer",
+  "bt_account_name",
+  "bt_account_number",
+  "bt_bank_name",
+  "column_break_bt",
+  "bt_branch",
+  "bt_branch_code",
+  "bt_swift_code",
+  "bt_currency",
+  "bt_instructions",
+  "wire_transfer_section",
+  "enable_wire_transfer",
+  "wt_beneficiary_name",
+  "wt_beneficiary_address",
+  "wt_account_number",
+  "wt_iban",
+  "wt_currency",
+  "column_break_wt",
+  "wt_bank_name",
+  "wt_bank_address",
+  "wt_swift_code",
+  "wt_intermediary_bank",
+  "wt_intermediary_swift",
+  "wt_instructions"
+ ]
+}

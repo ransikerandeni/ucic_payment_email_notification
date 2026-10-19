@@ -17,7 +17,7 @@
  ],
  "fields": [
   {
-   "description": "Every request a participant sends from the app's Help & Support dialog is emailed to both addresses below. Leave both blank to send nothing.",
+   "description": "Every request a participant sends from the app's Help & Support dialog is emailed to both addresses below. Support Email 1 is also copied on every payment-failed alert. Leave both blank to send nothing.",
    "fieldname": "support_section",
    "fieldtype": "Section Break",
    "label": "Help & Support"
@@ -49,7 +49,7 @@
    "fieldtype": "Data",
    "label": "Payment Failure Email",
    "options": "Email",
-   "description": "Gets an alert for every failed payment. Leave blank to send none."
+   "description": "Gets an alert for every failed payment, together with Support Email 1. Leave both blank to send none."
   },
   {
    "fieldname": "column_break_payment_failure",
@@ -65,7 +65,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-10-18 23:55:00.000000",
+ "modified": "2026-10-19 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "UCIC Notifications",
  "name": "UCIC Notification Settings",

@@ -368,7 +368,7 @@ the saved addresses.
 | Field | Gets |
 |---|---|
 | Support Email 1, Support Email 2 | Every **Help & Support** request from the app, the same email to both. Reply goes straight to the participant (`reply_to` is their address) |
-| Payment Failure Email | One alert per **Failed** payment - conference pass and slot payments alike - sent together with the participant's email |
+| Payment Failure Email | One alert per **Failed** payment - conference pass and slot payments alike - sent together with the participant's email. **Support Email 1 is copied on the same alert** (one email to both; the same address twice is mailed once; Support Email 2 is not copied) |
 | Payment Failure Reply Email (0.5.3+) | Not emailed. It is the address the participant's "Payment failed" email tells them to write to, and its Reply-To. Blank: the email says "contact the UCIC organising team" and gives no address |
 
 **Help & Support** uses a `doc_events` `after_insert` hook on **Support
@@ -426,6 +426,8 @@ the Gmail phone app enlarged it until it spilled out of the circle. **Run
 `bench build --app ucic_notifications`** after updating so the image is served;
 without it, the emails show a plain red circle. No migrate or Server Script
 change.
+
+**0.6.0** adds **Bank Transfer / Wire Transfer** (`offline_payments.py`). There are two new DocTypes: **UCIC Offline Payment Settings**, which holds the bank details shown in the app, and **Offline Payment Submission**, which holds a participant's uploaded receipt. The app gets `get_methods` and `submit_receipt`. A submission emails the **Payment Failure Email** (receipt attached) and the participant ("Payment requested"), after commit. Migrate also creates `Bank Transfer` / `Wire Transfer` **Payment Gateway** records. The submission marks nothing paid: the organiser uses Mark as Paid. **Run `bench --site <site> migrate`**, then paste the Server and Client Scripts listed in `../payment/offline/SETUP.md`.
 
 ---
 

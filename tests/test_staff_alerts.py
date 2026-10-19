@@ -159,7 +159,7 @@ class TestPaymentFailureAlert:
         assert staff_alerts.send_failure_alert(PR) is True
 
         (mail,) = STATE.mails
-        assert mail["recipients"] == ["payments@ucsc.lk"]
+        assert mail["recipients"] == ["payments@ucsc.lk", "help1@ucsc.lk"]
         assert mail["subject"] == "[Payment failed] Ranmal Perera - %s" % PR
         assert "ranmal@example.com" in mail["message"]
         assert "3-Minute Research" in mail["message"]
@@ -182,7 +182,7 @@ class TestPaymentFailureAlert:
         assert STATE.mails == []
 
     def test_no_address_sends_nothing_and_stamps_nothing(self):
-        configure(failure="")
+        configure(support_1="", failure="")
         seed_failed()
 
         assert staff_alerts.sweep() == {"sent": 0, "failed": 0}
@@ -196,7 +196,7 @@ class TestPaymentFailureAlert:
         STATE.records["Payment Request"][PR]["email_to"] = None
 
         assert staff_alerts.send_failure_alert(PR) is True
-        assert STATE.mails[0]["recipients"] == ["payments@ucsc.lk"]
+        assert STATE.mails[0]["recipients"] == ["payments@ucsc.lk", "help1@ucsc.lk"]
 
     def test_staff_alert_is_independent_of_the_participant_notice(self):
         configure()
@@ -289,7 +289,7 @@ class TestInstantFailureFromApp:
 
         receipts.notify_outcome_for_user(PR, "login@example.com")
 
-        assert [m["recipients"] for m in STATE.mails] == [["payments@ucsc.lk"]]
+        assert [m["recipients"] for m in STATE.mails] == [["payments@ucsc.lk", "help1@ucsc.lk"]]
 
 
 def test_failure_alert_reads_as_a_failure_and_support_does_not():
@@ -340,3 +340,36 @@ def test_both_failure_emails_draw_the_cross_as_an_absolute_image():
     for mail in STATE.mails:
         assert 'src="http' in mail["message"]
         assert "/assets/ucic_notifications/images/payment-failed-cross.png" in mail["message"]
+
+
+class TestFailureAlertAlsoGoesToSupport:
+    """The payment-failed alert goes to the Payment Failure Email AND Support
+    Email 1 - one email, both addresses. Support Email 2 is not copied."""
+
+    def test_support_email_2_is_not_copied(self):
+        configure(support_2="help2@ucsc.lk")
+        seed_failed()
+
+        staff_alerts.send_failure_alert(PR)
+
+        assert "help2@ucsc.lk" not in STATE.mails[0]["recipients"]
+
+    def test_same_address_in_both_fields_is_mailed_once(self):
+        configure(support_1="PAYMENTS@ucsc.lk")
+        seed_failed()
+
+        staff_alerts.send_failure_alert(PR)
+
+        assert STATE.mails[0]["recipients"] == ["payments@ucsc.lk"]
+
+    def test_support_email_1_alone_still_gets_it(self):
+        configure(failure="")
+        seed_failed()
+
+        assert staff_alerts.sweep() == {"sent": 1, "failed": 0}
+        assert STATE.mails[0]["recipients"] == ["help1@ucsc.lk"]
+
+    def test_other_users_of_failure_recipients_are_unchanged(self):
+        configure()
+
+        assert staff_alerts.failure_recipients() == ["payments@ucsc.lk"]

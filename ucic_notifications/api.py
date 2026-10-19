@@ -124,7 +124,7 @@ def send_test_staff_alerts():
 		)
 		sent_to.extend(support)
 
-	failure = staff_alerts.failure_recipients()
+	failure = staff_alerts.failure_alert_recipients()
 	if failure:
 		frappe.sendmail(
 			recipients=failure,

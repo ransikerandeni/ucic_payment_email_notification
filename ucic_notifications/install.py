@@ -3,7 +3,7 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
-from ucic_notifications import receipt_email
+from ucic_notifications import offline_payments, receipt_email
 from ucic_notifications.receipts import RECEIPTABLE_REFERENCE_DOCTYPES, failure_field, receipt_field
 from ucic_notifications.staff_alerts import staff_failure_field
 
@@ -45,6 +45,7 @@ CUSTOM_FIELDS = {
 
 def after_install():
 	ensure_custom_fields()
+	ensure_offline_payment_gateways()
 	seed_receipt_email_template()
 	backfill_existing()
 	backfill_existing_failures()
@@ -56,10 +57,32 @@ def after_migrate():
 	# live for a while would have receipts legitimately not yet sent, and
 	# stamping those would mean nobody ever gets them.
 	ensure_custom_fields()
+	ensure_offline_payment_gateways()
 
 
 def ensure_custom_fields():
 	create_custom_fields(CUSTOM_FIELDS, ignore_validate=True)
+
+
+def ensure_offline_payment_gateways():
+	"""A Payment Gateway record for Bank Transfer and Wire Transfer.
+
+	create_gateway_payment writes the method's name into the Payment Request's
+	`payment_gateway`, a Link to Payment Gateway - so the record has to exist
+	for that link to resolve on the form and in reports. No Payment Gateway
+	Account is created: nothing is charged through these, and the Payment
+	Request deliberately carries no account. Never fails a migrate.
+	"""
+	if not frappe.db.exists("DocType", "Payment Gateway"):
+		return
+
+	for method in offline_payments.METHODS:
+		if frappe.db.exists("Payment Gateway", method):
+			continue
+		try:
+			frappe.get_doc({"doctype": "Payment Gateway", "gateway": method}).insert(ignore_permissions=True)
+		except Exception:
+			frappe.log_error(title="Could not create Payment Gateway %s" % (method,), message=frappe.get_traceback())
 
 
 def seed_receipt_email_template():
