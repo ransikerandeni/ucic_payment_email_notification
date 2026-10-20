@@ -429,6 +429,8 @@ change.
 
 **0.6.0** adds **Bank Transfer / Wire Transfer** (`offline_payments.py`). There are two new DocTypes: **UCIC Offline Payment Settings**, which holds the bank details shown in the app, and **Offline Payment Submission**, which holds a participant's uploaded receipt. The app gets `get_methods` and `submit_receipt`. A submission emails the **Payment Failure Email** (receipt attached) and the participant ("Payment requested"), after commit. Migrate also creates `Bank Transfer` / `Wire Transfer` **Payment Gateway** records. The submission marks nothing paid: the organiser uses Mark as Paid. **Run `bench --site <site> migrate`**, then paste the Server and Client Scripts listed in `../payment/offline/SETUP.md`.
 
+**0.6.1**: **Mark as Paid** now emails the participant's receipt immediately, through `api.send_receipt_after_manual_payment` (organisers only, never re-sends). Before this, the receipt waited for the sweep. The sweep remains the backstop. All emails now show each detail's label above its value, because on phones the side-by-side table squeezed values to a few letters wide. A Bank / Wire Transfer submission also requires the receipt (**Bank Receipt** is mandatory). Run `migrate`, then paste the updated `ucic_mark_payment_request_paid` Server Script and Payment Request Client Script.
+
 ---
 
 ## Editing the email

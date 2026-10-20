@@ -39,6 +39,26 @@ def resend_receipt(payment_request):
 
 
 @frappe.whitelist()
+def send_receipt_after_manual_payment(payment_request):
+	"""Email the receipt straight after an organiser presses Mark as Paid.
+
+	Called by the ucic_mark_payment_request_paid Server Script, in the same
+	request that settled the payment, so the participant hears at once instead
+	of whenever the sweep next runs (and even if the scheduler is not running).
+	The mail goes out after that request commits.
+
+	Unlike resend_receipt this never re-sends: a receipt already recorded as
+	sent is left alone. Organisers only, for the same reason as resend_receipt.
+	"""
+	if not frappe.has_permission("Payment Request", "read", doc=payment_request):
+		raise frappe.PermissionError("You are not allowed to read Payment Request %s." % (payment_request,))
+
+	_require_organiser("send a receipt")
+
+	return {"sent": bool(receipts.send_receipt_now(payment_request))}
+
+
+@frappe.whitelist()
 def notify_payment_outcome(payment_request):
 	"""Called by the UCIC app the moment a payment settles, so the participant is
 	emailed straight away instead of waiting for the sweep.

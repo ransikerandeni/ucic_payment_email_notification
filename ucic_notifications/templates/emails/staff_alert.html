@@ -81,8 +81,13 @@
 					style="width:100%;background:{{ panel }};border-radius:10px;border-collapse:separate{% if danger %};border:1px solid #e5e7eb;border-top:3px solid #dc2626{% endif %}">
 					{%- for label, value in details %}
 					<tr>
-						<td valign="top" style="padding:10px 12px 10px 16px;{% if not loop.first %}border-top:1px solid {{ rule }};{% endif %}font-size:13.5px;line-height:1.45;color:#6b7280;white-space:nowrap">{{ label|e }}</td>
-						<td valign="top" align="right" style="padding:10px 16px 10px 12px;{% if not loop.first %}border-top:1px solid {{ rule }};{% endif %}font-size:14px;line-height:1.45;font-weight:600;color:#111827;text-align:right;word-break:break-word">{{ value|e }}</td>
+						{#- Label above value, not side by side: on a phone (Gmail enlarges the
+						    text) a label column wide enough for "Payment Request ID" left the
+						    value a few letters wide. Stacked rows use the full width anywhere. -#}
+						<td colspan="2" valign="top" style="padding:10px 16px 10px 16px;{% if not loop.first %}border-top:1px solid {{ rule }};{% endif %}">
+							<div style="font-size:12.5px;line-height:1.4;color:#6b7280">{{ label|e }}</div>
+							<div style="font-size:14.5px;line-height:1.45;font-weight:600;color:#111827;margin-top:2px;word-break:break-word;overflow-wrap:anywhere">{{ value|e }}</div>
+						</td>
 					</tr>
 					{%- endfor %}
 					{%- if danger %}

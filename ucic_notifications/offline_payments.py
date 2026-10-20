@@ -237,6 +237,18 @@ def submit_receipt(
 		frappe.db.get_value("Participant", pr.party, "full_name") if pr.party else None
 	)
 
+	# The receipt is mandatory on the submission (reqd on its DocType), so the
+	# file is saved first and attached to the submission once that exists.
+	receipt_file = frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_name": file_name,
+			"is_private": 1,
+			"content": content,
+		}
+	)
+	receipt_file.insert(ignore_permissions=True)
+
 	doc = frappe.get_doc(
 		{
 			"doctype": SUBMISSION_DOCTYPE,
@@ -252,25 +264,22 @@ def submit_receipt(
 			"payer_reference": (payer_reference or "").strip()[:140] or None,
 			"transfer_date": transfer_date,
 			"remarks": (remarks or "").strip() or None,
+			"receipt": receipt_file.file_url,
 			"submitted_by": user,
 			"submitted_on": frappe.utils.now(),
 		}
 	)
 	doc.insert(ignore_permissions=True)
 
-	receipt_file = frappe.get_doc(
+	# So the receipt shows in the submission's attachments and is permission-
+	# checked against it.
+	receipt_file.db_set(
 		{
-			"doctype": "File",
-			"file_name": file_name,
 			"attached_to_doctype": SUBMISSION_DOCTYPE,
 			"attached_to_name": doc.name,
 			"attached_to_field": "receipt",
-			"is_private": 1,
-			"content": content,
 		}
 	)
-	receipt_file.insert(ignore_permissions=True)
-	doc.db_set("receipt", receipt_file.file_url)
 
 	# On the Payment Request too, where the organiser presses Mark as Paid.
 	frappe.get_doc(
@@ -341,9 +350,9 @@ def send_submission_emails(submission, receipt_file=None):
 	if not sub:
 		return {"team": False, "participant": False}
 
+	# Formatted exactly as the receipt formats it ("Rs 1,000.00"), so the two
+	# emails about one payment show one figure.
 	amount_display = frappe.utils.fmt_money(sub.amount, currency=sub.currency)
-	if sub.currency and sub.currency not in amount_display:
-		amount_display = "%s %s" % (sub.currency, amount_display)
 
 	who = sub.participant_name or sub.participant or sub.email
 	details = _details(sub, amount_display)

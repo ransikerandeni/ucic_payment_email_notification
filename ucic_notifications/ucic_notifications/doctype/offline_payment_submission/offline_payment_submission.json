@@ -110,7 +110,8 @@
    "fieldname": "receipt",
    "fieldtype": "Attach",
    "label": "Bank Receipt",
-   "read_only": 1
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "remarks",
@@ -161,7 +162,7 @@
   }
  ],
  "links": [],
- "modified": "2026-10-19 00:00:00.000000",
+ "modified": "2026-10-19 18:30:00.000000",
  "modified_by": "Administrator",
  "module": "UCIC Notifications",
  "name": "Offline Payment Submission",

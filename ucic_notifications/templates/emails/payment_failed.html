@@ -107,8 +107,13 @@
 					</tr>
 					{%- for label, value in details %}
 					<tr>
-						<td valign="top" style="padding:10px 12px 10px 18px;border-top:1px solid #e5e7eb;font-size:13.5px;line-height:1.45;color:#6b7280;white-space:nowrap">{{ label|e }}</td>
-						<td valign="top" align="right" style="padding:10px 18px 10px 12px;border-top:1px solid #e5e7eb;font-size:14px;line-height:1.45;font-weight:600;color:#111827;text-align:right{% if label in ('Reference', 'Transaction ref.') %};white-space:nowrap{% endif %}">{{ value|e }}</td>
+						{#- Label above value, not side by side: on a phone (Gmail enlarges the
+						    text) a label column wide enough for "Payment Request ID" left the
+						    value a few letters wide. Stacked rows use the full width anywhere. -#}
+						<td colspan="2" valign="top" style="padding:10px 18px 10px 18px;border-top:1px solid #e5e7eb;">
+							<div style="font-size:12.5px;line-height:1.4;color:#6b7280">{{ label|e }}</div>
+							<div style="font-size:14.5px;line-height:1.45;font-weight:600;color:#111827;margin-top:2px;word-break:break-word;overflow-wrap:anywhere">{{ value|e }}</div>
+						</td>
 					</tr>
 					{%- endfor %}
 					<tr>

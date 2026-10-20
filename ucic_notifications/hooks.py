@@ -19,15 +19,14 @@ app_logo_url = "/assets/ucic_notifications/images/logo.svg"
 # Notification. Hence the sweep below.
 # ---------------------------------------------------------------------------
 
-# The ONE doc_events hook, and it is not on Payment Request. A Support Request
-# is created with `insert()` by the save_support_request Server Script, which
-# does run the lifecycle - so after_insert fires. It only queues an email to the
-# team and never raises; see staff_alerts.on_support_request_insert.
-doc_events = {
-	"Support Request": {
-		"after_insert": "ucic_notifications.staff_alerts.on_support_request_insert",
-	}
-}
+# No doc_events. Help & Support used to be one Support Request per question,
+# mailed to the team from an after_insert hook here. It is now ONE chat per
+# participant, so a new request only means "first message ever", and the
+# send_support_message Server Script emails the team on every new participant
+# message instead (with the unanswered messages quoted). The hook would only
+# duplicate the first of those, with an empty subject, so it is gone.
+# staff_alerts.on_support_request_insert is no longer called; it is left in
+# place, with its tests, until those are retired together.
 
 after_install = "ucic_notifications.install.after_install"
 after_migrate = "ucic_notifications.install.after_migrate"

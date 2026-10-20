@@ -41,9 +41,10 @@ class FakeDoc(dict):
 		STATE.records.setdefault(doctype, {})[self["name"]] = {k: v for k, v in self.items() if k != "content"}
 		return self
 
-	def db_set(self, field, value):
-		self[field] = value
-		STATE.records[self["doctype"]][self["name"]][field] = value
+	def db_set(self, field, value=None):
+		values = field if isinstance(field, dict) else {field: value}
+		self.update(values)
+		STATE.records[self["doctype"]][self["name"]].update(values)
 
 
 @pytest.fixture(autouse=True)
@@ -132,6 +133,16 @@ def test_bad_receipts_are_refused(name, data, message):
 		offline_payments._decode_receipt(name, data)
 
 
+@pytest.mark.parametrize("method", ["Bank Transfer", "Wire Transfer"])
+def test_no_receipt_no_submission(method):
+	STATE.singles[SETTINGS]["enable_wire_transfer"] = 1
+	with pytest.raises(frappe.ValidationError, match="attach your bank receipt"):
+		offline_payments.submit_receipt(PR, method)
+
+	assert offline_payments.SUBMISSION_DOCTYPE not in STATE.records
+	assert STATE.mails == []
+
+
 def test_submitting_saves_the_receipt_and_emails_both_but_marks_nothing_paid():
 	out = offline_payments.submit_receipt(
 		PR, "Bank Transfer", receipt_name="slip.pdf", receipt_data=PDF, payer_reference="TT-889", transfer_date="2026-10-18"
@@ -146,6 +157,11 @@ def test_submitting_saves_the_receipt_and_emails_both_but_marks_nothing_paid():
 	receipt_file = STATE.records["File"]["FILE-0001"]
 	assert receipt_file["is_private"] == 1
 	assert receipt_file["attached_to_name"] == "OPS-2026-00001"
+	assert receipt_file["attached_to_field"] == "receipt"
+
+	# Mandatory on the DocType, so it must be on the submission when inserted.
+	inserted = next(d for d in FakeDoc.inserted if d["doctype"] == offline_payments.SUBMISSION_DOCTYPE)
+	assert inserted["receipt"] == "/private/files/slip.pdf"
 
 	# Never settled here - only Mark as Paid does that.
 	assert STATE.records["Payment Request"][PR]["status"] == "Requested"
@@ -183,3 +199,26 @@ def test_a_mail_failure_does_not_lose_the_submission(monkeypatch):
 
 	assert out["name"] in STATE.records[offline_payments.SUBMISSION_DOCTYPE]
 	assert STATE.errors and STATE.errors[0][0] == "Offline payment emails not sent"
+
+
+def test_marking_paid_by_hand_emails_the_receipt_once(monkeypatch):
+	from ucic_notifications import api
+
+	monkeypatch.setattr(frappe, "has_permission", lambda *a, **k: True, raising=False)
+	monkeypatch.setattr(frappe, "get_roles", lambda *a: ["Accounts Manager"], raising=False)
+
+	calls = []
+	monkeypatch.setattr(api.receipts, "send_receipt_now", lambda name: calls.append(name) or True)
+
+	assert api.send_receipt_after_manual_payment(PR) == {"sent": True}
+	assert calls == [PR]
+
+
+def test_only_organisers_can_trigger_the_receipt(monkeypatch):
+	from ucic_notifications import api
+
+	monkeypatch.setattr(frappe, "has_permission", lambda *a, **k: True, raising=False)
+	monkeypatch.setattr(frappe, "get_roles", lambda *a: ["Participant"], raising=False)
+
+	with pytest.raises(frappe.PermissionError):
+		api.send_receipt_after_manual_payment(PR)
