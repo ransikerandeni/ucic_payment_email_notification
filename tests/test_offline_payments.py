@@ -18,6 +18,8 @@ NOTIFY = "UCIC Notification Settings"
 PR = "ACC-PRQ-2026-00042"
 USER = "ranmal@example.com"
 PDF = base64.b64encode(b"%PDF-1.4 receipt").decode()
+# The stub's today is 2026-09-17; a transfer date must not be after it.
+PAID = {"payer_reference": "TT-889", "transfer_date": "2026-09-16"}
 
 
 class FakeDoc(dict):
@@ -143,9 +145,31 @@ def test_no_receipt_no_submission(method):
 	assert STATE.mails == []
 
 
+@pytest.mark.parametrize("method", ["Bank Transfer", "Wire Transfer"])
+@pytest.mark.parametrize(
+	"overrides,message",
+	[
+		({"payer_reference": "   "}, "bank reference"),
+		({"payer_reference": None}, "bank reference"),
+		({"transfer_date": ""}, "date you made the transfer"),
+		({"transfer_date": "18/10/2026"}, "YYYY-MM-DD"),
+		({"transfer_date": "2026-09-18"}, "cannot be in the future"),
+	],
+)
+def test_reference_and_date_are_required(method, overrides, message):
+	STATE.singles[SETTINGS]["enable_wire_transfer"] = 1
+	args = dict(PAID, **overrides)
+	with pytest.raises(frappe.ValidationError, match=message):
+		offline_payments.submit_receipt(PR, method, receipt_name="slip.pdf", receipt_data=PDF, **args)
+
+	assert offline_payments.SUBMISSION_DOCTYPE not in STATE.records
+	assert "File" not in STATE.records
+	assert STATE.mails == []
+
+
 def test_submitting_saves_the_receipt_and_emails_both_but_marks_nothing_paid():
 	out = offline_payments.submit_receipt(
-		PR, "Bank Transfer", receipt_name="slip.pdf", receipt_data=PDF, payer_reference="TT-889", transfer_date="2026-10-18"
+		PR, "Bank Transfer", receipt_name="slip.pdf", receipt_data=PDF, **PAID
 	)
 
 	assert out["name"] == "OPS-2026-00001"
@@ -185,7 +209,7 @@ def test_submitting_saves_the_receipt_and_emails_both_but_marks_nothing_paid():
 
 def test_no_team_address_still_tells_the_participant():
 	STATE.singles[NOTIFY] = {}
-	offline_payments.submit_receipt(PR, "Bank Transfer", receipt_name="slip.png", receipt_data=PDF)
+	offline_payments.submit_receipt(PR, "Bank Transfer", receipt_name="slip.png", receipt_data=PDF, **PAID)
 
 	assert [m["recipients"] for m in STATE.mails] == [[USER]]
 
@@ -195,7 +219,7 @@ def test_a_mail_failure_does_not_lose_the_submission(monkeypatch):
 		raise RuntimeError("smtp down")
 
 	monkeypatch.setattr(frappe, "sendmail", boom)
-	out = offline_payments.submit_receipt(PR, "Bank Transfer", receipt_name="slip.pdf", receipt_data=PDF)
+	out = offline_payments.submit_receipt(PR, "Bank Transfer", receipt_name="slip.pdf", receipt_data=PDF, **PAID)
 
 	assert out["name"] in STATE.records[offline_payments.SUBMISSION_DOCTYPE]
 	assert STATE.errors and STATE.errors[0][0] == "Offline payment emails not sent"

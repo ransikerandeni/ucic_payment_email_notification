@@ -228,9 +228,20 @@ def submit_receipt(
 	pr = validate_submission(payment_request, payment_method, user)
 	file_name, content = _decode_receipt(receipt_name, receipt_data)
 
-	transfer_date = (transfer_date or "").strip() or None
-	if transfer_date and not _DATE.match(transfer_date):
+	# Both required, for Bank Transfer and Wire Transfer alike: with the
+	# receipt, they are what the organising team matches against the bank
+	# statement. Checked before anything is saved.
+	payer_reference = (payer_reference or "").strip()[:140]
+	if not payer_reference:
+		frappe.throw("Please enter the bank reference shown on your receipt.")
+
+	transfer_date = (transfer_date or "").strip()
+	if not transfer_date:
+		frappe.throw("Please enter the date you made the transfer.")
+	if not _DATE.match(transfer_date):
 		frappe.throw("Transfer date must be a date (YYYY-MM-DD).")
+	if transfer_date > frappe.utils.nowdate():
+		frappe.throw("The transfer date cannot be in the future.")
 
 	ctx = receipts.build_context(pr.name) or {}
 	participant_name = ctx.get("participant") or (
@@ -261,7 +272,7 @@ def submit_receipt(
 			"payment_for": ctx.get("session_title") or ("%s %s" % (pr.reference_doctype, pr.reference_name)),
 			"amount": pr.grand_total,
 			"currency": pr.currency,
-			"payer_reference": (payer_reference or "").strip()[:140] or None,
+			"payer_reference": payer_reference,
 			"transfer_date": transfer_date,
 			"remarks": (remarks or "").strip() or None,
 			"receipt": receipt_file.file_url,

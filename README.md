@@ -431,6 +431,8 @@ change.
 
 **0.6.1**: **Mark as Paid** now emails the participant's receipt immediately, through `api.send_receipt_after_manual_payment` (organisers only, never re-sends). Before this, the receipt waited for the sweep. The sweep remains the backstop. All emails now show each detail's label above its value, because on phones the side-by-side table squeezed values to a few letters wide. A Bank / Wire Transfer submission also requires the receipt (**Bank Receipt** is mandatory). Run `migrate`, then paste the updated `ucic_mark_payment_request_paid` Server Script and Payment Request Client Script.
 
+**0.6.2**: A Bank / Wire Transfer submission now requires the **bank reference** and the **transfer date**, in `submit_receipt` and as mandatory fields on **Offline Payment Submission**. The date can't be in the future. Run `migrate`. Older submissions missing either field must have it filled in before they can be saved from Desk (for example, before **Reject**). Mark as Paid is unaffected.
+
 ---
 
 ## Editing the email
