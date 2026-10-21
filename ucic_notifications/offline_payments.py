@@ -87,8 +87,9 @@ MAX_RECEIPT_BYTES = 5 * 1024 * 1024
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # The Participant check box that opts one participant in to these methods.
-# Unticked (the default) means card only. Created by install.ensure_custom_fields;
-# a `custom_` copy added by hand in Customize Form works too.
+# Unticked (the default) means card only. A field on the Participant DocType
+# itself (a custom DocType, edited in Desk); a `custom_` copy added through
+# Customize Form works too.
 PARTICIPANT_ALLOW_FIELD = "allow_other_payment_options"
 
 
