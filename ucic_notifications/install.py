@@ -39,7 +39,18 @@ CUSTOM_FIELDS = {
 			"allow_on_submit": 1,
 			"description": "When the organising team (UCIC Notification Settings > Payment Failure Email) was emailed that this payment failed. Clear it to re-send.",
 		},
-	]
+	],
+	"Participant": [
+		{
+			"fieldname": offline_payments.PARTICIPANT_ALLOW_FIELD,
+			"label": "Allow Other Payment Options",
+			"fieldtype": "Check",
+			# Unticked for everyone, existing and new: card only unless an
+			# organiser opts a participant in.
+			"default": "0",
+			"description": "Tick to offer this participant Bank Transfer / Wire Transfer (\"Other Payment Options\") in the UCIC app. Unticked: card payment only.",
+		},
+	],
 }
 
 

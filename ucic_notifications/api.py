@@ -11,7 +11,7 @@ import frappe
 
 from ucic_notifications import receipt_email, receipts, staff_alerts
 
-ORGANISER_ROLES = ("System Manager", "Accounts Manager")
+ORGANISER_ROLES = ("System Manager", "Accounts Manager", "Payment Validator")
 
 
 def _require_organiser(action):

@@ -69,7 +69,16 @@ def site(monkeypatch):
 		"payment_failure_email": "payments@ucsc.lk",
 		"payment_failure_reply_email": "ucic@ucsc.lk",
 	}
-	STATE.put("Participant", "P-0005", full_name="Ranmal Perera", email=USER, user=USER)
+	STATE.fields["Participant"] = {offline_payments.PARTICIPANT_ALLOW_FIELD}
+	STATE.put(
+		"Participant",
+		"P-0005",
+		name="P-0005",
+		full_name="Ranmal Perera",
+		email=USER,
+		user=USER,
+		allow_other_payment_options=1,
+	)
 	STATE.put(
 		"Payment Request",
 		PR,
@@ -103,6 +112,22 @@ def test_guests_cannot_list_methods(monkeypatch):
 	monkeypatch.setattr(frappe, "session", types.SimpleNamespace(user="Guest"))
 	with pytest.raises(frappe.PermissionError):
 		offline_payments.get_methods()
+
+
+def test_a_participant_not_ticked_is_offered_no_methods():
+	STATE.records["Participant"]["P-0005"]["allow_other_payment_options"] = 0
+	assert offline_payments.get_methods() == []
+
+
+def test_a_participant_not_ticked_cannot_submit_a_receipt():
+	STATE.records["Participant"]["P-0005"]["allow_other_payment_options"] = 0
+	with pytest.raises(frappe.ValidationError, match="not available for your registration"):
+		offline_payments.validate_submission(PR, "Bank Transfer", USER)
+
+
+def test_without_the_participant_field_nobody_is_offered_methods():
+	STATE.fields["Participant"] = set()
+	assert offline_payments.get_methods() == []
 
 
 def test_a_disabled_method_is_refused():

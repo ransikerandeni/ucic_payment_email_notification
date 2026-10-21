@@ -86,6 +86,11 @@ MAX_RECEIPT_BYTES = 5 * 1024 * 1024
 
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+# The Participant check box that opts one participant in to these methods.
+# Unticked (the default) means card only. Created by install.ensure_custom_fields;
+# a `custom_` copy added by hand in Customize Form works too.
+PARTICIPANT_ALLOW_FIELD = "allow_other_payment_options"
+
 
 # ---------------------------------------------------------------------------
 # What the app shows
@@ -121,10 +126,24 @@ def describe(method, settings):
 	}
 
 
+def participant_allowed(participant):
+	"""Whether an organiser has ticked this Participant for offline methods."""
+	column = receipts._resolve_field(
+		"Participant", (PARTICIPANT_ALLOW_FIELD, "custom_" + PARTICIPANT_ALLOW_FIELD)
+	)
+	if not participant or not column:
+		return False
+	return bool(frappe.db.get_value("Participant", participant, column))
+
+
 @frappe.whitelist()
 def get_methods():
-	"""The offline methods switched on, with their bank details."""
+	"""The offline methods switched on, with their bank details - none for a
+	participant not allowed them."""
 	_require_login()
+	participant = frappe.db.get_value("Participant", {"user": frappe.session.user}, "name")
+	if not participant_allowed(participant):
+		return []
 	settings = _settings()
 	return [describe(method, settings) for method in METHODS if is_enabled(method, settings)]
 
@@ -195,6 +214,9 @@ def validate_submission(payment_request, payment_method, user):
 
 	if not _owns(pr, user):
 		raise frappe.PermissionError("Payment Request %s is not yours." % (payment_request,))
+
+	if pr.party_type == "Participant" and not participant_allowed(pr.party):
+		frappe.throw("%s is not available for your registration. Please pay by card." % (payment_method,))
 
 	if pr.reference_doctype not in UCIC_REFERENCES:
 		frappe.throw("Payment Request %s cannot be paid by %s." % (pr.name, payment_method))
